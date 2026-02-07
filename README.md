@@ -1,6 +1,10 @@
 # discrete-sim
 
-A modern TypeScript discrete-event simulation library inspired by Python's SimPy. 
+[![npm version](https://badge.fury.io/js/discrete-sim.svg)](https://www.npmjs.com/package/discrete-sim)
+[![npm downloads](https://img.shields.io/npm/dm/discrete-sim.svg)](https://www.npmjs.com/package/discrete-sim)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A modern TypeScript discrete-event simulation library inspired by Python's SimPy.
 Build and analyze complex systems with intuitive, generator-based process modeling.
 
 ## Features
