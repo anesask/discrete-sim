@@ -1,0 +1,81 @@
+# Source files (not needed in package)
+src/
+tests/
+examples/
+
+# Configuration files
+.eslintrc.json
+.prettierrc
+tsconfig.json
+vitest.config.ts
+.gitignore
+.npmignore
+
+# Development files
+*.log
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Coverage reports
+coverage/
+.nyc_output/
+*.lcov
+
+# Documentation builds
+docs/
+docs-site/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Test files
+*.test.ts
+*.spec.ts
+
+# Backup files
+*.bak
+*.backup
+
+# Node modules (should never be published)
+node_modules/
+.pnp
+.pnp.js
+
+# Yarn files
+.yarn/
+yarn-error.log
+
+# Optional npm cache
+.npm
+.eslintcache
+
+# Build tools cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# CONTRIBUTING file (optional, you may want to include it)
+# Remove the comment below if you want to exclude it
+# CONTRIBUTING.md
