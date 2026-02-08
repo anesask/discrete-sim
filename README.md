@@ -125,16 +125,37 @@ Resources automatically track:
 
 ### Statistics
 
-Collect and analyze simulation data:
+Collect and analyze simulation data with comprehensive metrics:
 
 ```typescript
 const stats = new Statistics(sim);
 
+// Time-weighted averages
 stats.recordValue('temperature', 25.5);
+
+// Counters
 stats.increment('customers-served');
 
+// Advanced statistics (v0.1.2+)
+stats.enableSampleTracking('wait-time');
+stats.recordSample('wait-time', 5.2);
+stats.recordSample('wait-time', 3.1);
+
+// Get statistics
 const avgTemp = stats.getAverage('temperature');
 const count = stats.getCount('customers-served');
+
+// Percentiles for SLA tracking
+const p50 = stats.getPercentile('wait-time', 50);  // Median
+const p95 = stats.getPercentile('wait-time', 95);
+const p99 = stats.getPercentile('wait-time', 99);
+
+// Variance and standard deviation
+const variance = stats.getVariance('wait-time');
+const stdDev = stats.getStdDev('wait-time');
+
+// Histograms
+const histogram = stats.getHistogram('wait-time', 10);
 ```
 
 ### Random Number Generation
@@ -334,15 +355,31 @@ class Resource {
 class Statistics {
   constructor(simulation: Simulation);
 
+  // Time-weighted averages
   recordValue(name: string, value: number): void;
   getAverage(name: string): number;
 
+  // Counters
   increment(name: string, amount?: number): void;
   getCount(name: string): number;
 
+  // Timeseries
   enableTimeseries(name: string): void;
   getTimeseries(name: string): TimePoint[];
 
+  // Advanced statistics (v0.1.2+)
+  enableSampleTracking(name: string): void;
+  recordSample(name: string, value: number): void;
+  getPercentile(name: string, percentile: number): number;
+  getVariance(name: string): number;
+  getStdDev(name: string): number;
+  getMin(name: string): number;
+  getMax(name: string): number;
+  getSampleMean(name: string): number;
+  getSampleCount(name: string): number;
+  getHistogram(name: string, bins?: number): HistogramBin[];
+
+  // Export
   toJSON(): Record<string, unknown>;
   toCSV(): string;
 }
@@ -460,26 +497,6 @@ The `resource.request()` returns a token to yield, not a Promise. This allows sy
 
 Linear Congruential Generator is simple, fast, and sufficient for simulation. It's deterministic (critical for reproducibility) and has acceptable statistical properties for most applications.
 
-## Roadmap
-
-### v0.2.0
-- Priority queues for resources
-- Resource preemption
-- Monitors and containers
-- Advanced statistics (histograms, percentiles)
-
-### v0.3.0
-- Network topology modeling
-- Visualization and animation support
-- Real-time simulation mode
-- Advanced scheduling (calendar queue)
-
-### v1.0.0
-- Production-ready API freeze
-- Comprehensive documentation
-- Performance optimizations
-- Enterprise features
-
 ## Contributing
 
 Contributions are welcome! Please:
@@ -498,11 +515,14 @@ MIT
 
 Inspired by [SimPy](https://simpy.readthedocs.io/), the excellent Python discrete-event simulation library.
 
+## Documentation
+
+Full documentation is available at [https://www.discrete-sim.dev](https://www.discrete-sim.dev)
+
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/anesask/discrete-sim/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/anesask/discrete-sim/discussions)
-- **Documentation**: See `examples/` directory
 
 ## Citation
 

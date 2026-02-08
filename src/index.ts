@@ -26,7 +26,7 @@ export {
 } from './resources/Resource.js';
 
 // Statistics collection
-export { Statistics, TimePoint } from './statistics/Statistics.js';
+export { Statistics, TimePoint, HistogramBin } from './statistics/Statistics.js';
 
 // Random number generation
 export { Random } from './random/Random.js';

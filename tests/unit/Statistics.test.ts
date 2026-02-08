@@ -196,6 +196,7 @@ describe('Statistics', () => {
         averages: {},
         counters: {},
         timeseries: {},
+        samples: {}, // Added in v0.1.2
       });
     });
 

@@ -11,6 +11,20 @@ export interface TimePoint {
 }
 
 /**
+ * A bin in a histogram
+ */
+export interface HistogramBin {
+  /** Lower bound of the bin (inclusive) */
+  min: number;
+  /** Upper bound of the bin (exclusive, except for last bin) */
+  max: number;
+  /** Number of samples in this bin */
+  count: number;
+  /** Frequency (count / total samples) */
+  frequency: number;
+}
+
+/**
  * Statistics collector for discrete-event simulation.
  * Tracks time-weighted averages, counters, and timeseries data.
  *
@@ -47,6 +61,10 @@ export class Statistics {
   // Timeseries
   private timeseries: Map<string, TimePoint[]> = new Map();
   private recordTimeseries: Set<string> = new Set(); // Which metrics to record as timeseries
+
+  // Sample tracking (for percentiles, variance, histograms)
+  private samples: Map<string, number[]> = new Map(); // Raw sample values
+  private trackSamples: Set<string> = new Set(); // Which metrics to track samples for
 
   /**
    * Create a new statistics collector.
@@ -207,7 +225,7 @@ export class Statistics {
   /**
    * Export all statistics to a JSON object.
    *
-   * @returns Object containing averages, counts, and timeseries data
+   * @returns Object containing averages, counts, timeseries data, and sample statistics
    *
    * @example
    * ```typescript
@@ -221,6 +239,7 @@ export class Statistics {
       averages: {} as Record<string, number>,
       counters: {} as Record<string, number>,
       timeseries: {} as Record<string, TimePoint[]>,
+      samples: {} as Record<string, unknown>,
     };
 
     // Collect all averages
@@ -238,12 +257,27 @@ export class Statistics {
       (result.timeseries as Record<string, TimePoint[]>)[name] = points;
     }
 
+    // Collect sample statistics
+    for (const name of this.samples.keys()) {
+      (result.samples as Record<string, unknown>)[name] = {
+        count: this.getSampleCount(name),
+        mean: this.getSampleMean(name),
+        min: this.getMin(name),
+        max: this.getMax(name),
+        variance: this.getVariance(name),
+        stdDev: this.getStdDev(name),
+        p50: this.getPercentile(name, 50),
+        p95: this.getPercentile(name, 95),
+        p99: this.getPercentile(name, 99),
+      };
+    }
+
     return result;
   }
 
   /**
    * Export all statistics to CSV format.
-   * Generates separate sections for averages, counters, and timeseries.
+   * Generates separate sections for averages, counters, timeseries, and sample statistics.
    *
    * @returns CSV-formatted string
    *
@@ -281,6 +315,27 @@ export class Statistics {
       lines.push('');
     }
 
+    // Sample statistics section
+    if (this.samples.size > 0) {
+      lines.push('# Sample Statistics');
+      lines.push('Metric,Count,Mean,Min,Max,Variance,StdDev,P50,P95,P99');
+      for (const name of this.samples.keys()) {
+        const count = this.getSampleCount(name);
+        const mean = this.getSampleMean(name);
+        const min = this.getMin(name);
+        const max = this.getMax(name);
+        const variance = this.getVariance(name);
+        const stdDev = this.getStdDev(name);
+        const p50 = this.getPercentile(name, 50);
+        const p95 = this.getPercentile(name, 95);
+        const p99 = this.getPercentile(name, 99);
+        lines.push(
+          `${name},${count},${mean},${min},${max},${variance},${stdDev},${p50},${p95},${p99}`
+        );
+      }
+      lines.push('');
+    }
+
     // Timeseries section
     if (this.timeseries.size > 0) {
       for (const [name, points] of this.timeseries.entries()) {
@@ -306,6 +361,279 @@ export class Statistics {
     this.lastUpdateTimes.clear();
     this.counters.clear();
     this.timeseries.clear();
-    // Keep recordTimeseries settings
+    this.samples.clear();
+    // Keep recordTimeseries and trackSamples settings
+  }
+
+  /**
+   * Enable sample tracking for a metric.
+   * When enabled, raw sample values are stored for percentile, variance, and histogram calculations.
+   * Note: This can use significant memory for metrics with many samples.
+   *
+   * @param name - Metric name
+   *
+   * @example
+   * ```typescript
+   * stats.enableSampleTracking('wait-time');
+   * stats.recordSample('wait-time', 5.2);
+   * stats.recordSample('wait-time', 3.1);
+   * const p95 = stats.getPercentile('wait-time', 95);
+   * ```
+   */
+  enableSampleTracking(name: string): void {
+    this.trackSamples.add(name);
+    if (!this.samples.has(name)) {
+      this.samples.set(name, []);
+    }
+  }
+
+  /**
+   * Disable sample tracking for a metric.
+   *
+   * @param name - Metric name
+   */
+  disableSampleTracking(name: string): void {
+    this.trackSamples.delete(name);
+  }
+
+  /**
+   * Record a sample value for percentile and variance calculations.
+   * Sample tracking must be enabled for this metric first.
+   *
+   * @param name - Metric name
+   * @param value - Sample value
+   *
+   * @example
+   * ```typescript
+   * stats.enableSampleTracking('response-time');
+   * stats.recordSample('response-time', 1.5);
+   * stats.recordSample('response-time', 2.3);
+   * const p99 = stats.getPercentile('response-time', 99);
+   * ```
+   */
+  recordSample(name: string, value: number): void {
+    if (!this.trackSamples.has(name)) {
+      return; // Silently ignore if not tracking samples for this metric
+    }
+
+    if (!this.samples.has(name)) {
+      this.samples.set(name, []);
+    }
+
+    this.samples.get(name)!.push(value);
+  }
+
+  /**
+   * Get the specified percentile of a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @param percentile - Percentile to calculate (0-100)
+   * @returns Percentile value, or 0 if no samples
+   *
+   * @example
+   * ```typescript
+   * const p50 = stats.getPercentile('wait-time', 50);  // Median
+   * const p95 = stats.getPercentile('wait-time', 95);
+   * const p99 = stats.getPercentile('wait-time', 99);
+   * ```
+   */
+  getPercentile(name: string, percentile: number): number {
+    const sampleData = this.samples.get(name);
+    if (!sampleData || sampleData.length === 0) {
+      return 0;
+    }
+
+    // Sort samples (copy to avoid mutating original)
+    const sorted = [...sampleData].sort((a, b) => a - b);
+
+    // Calculate percentile index
+    const index = (percentile / 100) * (sorted.length - 1);
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+
+    // Interpolate if between two values
+    if (lower === upper) {
+      return sorted[lower]!;
+    }
+
+    const lowerValue = sorted[lower]!;
+    const upperValue = sorted[upper]!;
+    const fraction = index - lower;
+
+    return lowerValue + (upperValue - lowerValue) * fraction;
+  }
+
+  /**
+   * Get the variance of a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @returns Variance, or 0 if no samples
+   *
+   * @example
+   * ```typescript
+   * const variance = stats.getVariance('wait-time');
+   * ```
+   */
+  getVariance(name: string): number {
+    const sampleData = this.samples.get(name);
+    if (!sampleData || sampleData.length === 0) {
+      return 0;
+    }
+
+    // Calculate mean
+    const mean = sampleData.reduce((sum, val) => sum + val, 0) / sampleData.length;
+
+    // Calculate variance
+    const squaredDiffs = sampleData.map((val) => Math.pow(val - mean, 2));
+    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / sampleData.length;
+
+    return variance;
+  }
+
+  /**
+   * Get the standard deviation of a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @returns Standard deviation, or 0 if no samples
+   *
+   * @example
+   * ```typescript
+   * const stdDev = stats.getStdDev('wait-time');
+   * ```
+   */
+  getStdDev(name: string): number {
+    return Math.sqrt(this.getVariance(name));
+  }
+
+  /**
+   * Get the minimum value of a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @returns Minimum value, or 0 if no samples
+   */
+  getMin(name: string): number {
+    const sampleData = this.samples.get(name);
+    if (!sampleData || sampleData.length === 0) {
+      return 0;
+    }
+    return Math.min(...sampleData);
+  }
+
+  /**
+   * Get the maximum value of a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @returns Maximum value, or 0 if no samples
+   */
+  getMax(name: string): number {
+    const sampleData = this.samples.get(name);
+    if (!sampleData || sampleData.length === 0) {
+      return 0;
+    }
+    return Math.max(...sampleData);
+  }
+
+  /**
+   * Get the sample mean (arithmetic average) of a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @returns Mean value, or 0 if no samples
+   */
+  getSampleMean(name: string): number {
+    const sampleData = this.samples.get(name);
+    if (!sampleData || sampleData.length === 0) {
+      return 0;
+    }
+    return sampleData.reduce((sum, val) => sum + val, 0) / sampleData.length;
+  }
+
+  /**
+   * Get the number of samples recorded for a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @returns Number of samples
+   */
+  getSampleCount(name: string): number {
+    const sampleData = this.samples.get(name);
+    return sampleData ? sampleData.length : 0;
+  }
+
+  /**
+   * Generate a histogram for a metric.
+   * Sample tracking must be enabled for this metric.
+   *
+   * @param name - Metric name
+   * @param bins - Number of bins (default: 10)
+   * @returns Array of histogram bins
+   *
+   * @example
+   * ```typescript
+   * const histogram = stats.getHistogram('wait-time', 10);
+   * for (const bin of histogram) {
+   *   console.log(`${bin.min}-${bin.max}: ${bin.count} (${(bin.frequency * 100).toFixed(1)}%)`);
+   * }
+   * ```
+   */
+  getHistogram(name: string, bins = 10): HistogramBin[] {
+    const sampleData = this.samples.get(name);
+    if (!sampleData || sampleData.length === 0) {
+      return [];
+    }
+
+    const min = Math.min(...sampleData);
+    const max = Math.max(...sampleData);
+    const range = max - min;
+
+    // Handle case where all values are the same (range = 0)
+    if (range === 0) {
+      return [
+        {
+          min,
+          max,
+          count: sampleData.length,
+          frequency: 1.0,
+        },
+      ];
+    }
+
+    const binWidth = range / bins;
+
+    // Initialize bins
+    const histogram: HistogramBin[] = [];
+    for (let i = 0; i < bins; i++) {
+      const binMin = min + i * binWidth;
+      const binMax = i === bins - 1 ? max : binMin + binWidth;
+      histogram.push({
+        min: binMin,
+        max: binMax,
+        count: 0,
+        frequency: 0,
+      });
+    }
+
+    // Count samples in each bin
+    for (const value of sampleData) {
+      let binIndex = Math.floor((value - min) / binWidth);
+      // Handle edge case where value === max
+      if (binIndex >= bins) {
+        binIndex = bins - 1;
+      }
+      histogram[binIndex]!.count++;
+    }
+
+    // Calculate frequencies
+    const totalSamples = sampleData.length;
+    for (const bin of histogram) {
+      bin.frequency = bin.count / totalSamples;
+    }
+
+    return histogram;
   }
 }

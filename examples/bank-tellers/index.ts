@@ -67,8 +67,10 @@ function* customerProcess(
   const waitTime = serviceStartTime - arrivalTime;
 
   // Track wait time
+  const waitTimeMinutes = waitTime * 60;
   stats.recordValue('wait-time', waitTime);
-  stats.recordValue('wait-time-minutes', waitTime * 60);
+  stats.recordValue('wait-time-minutes', waitTimeMinutes);
+  stats.recordSample('wait-time-minutes', waitTimeMinutes); // For percentiles
   stats.increment('customers-served');
 
   // Track by transaction type
@@ -110,8 +112,10 @@ function* customerProcess(
 
   // Track total time in bank
   const totalTime = sim.now - arrivalTime;
+  const totalTimeMinutes = totalTime * 60;
   stats.recordValue('total-time', totalTime);
-  stats.recordValue('total-time-minutes', totalTime * 60);
+  stats.recordValue('total-time-minutes', totalTimeMinutes);
+  stats.recordSample('total-time-minutes', totalTimeMinutes); // For percentiles
 }
 
 /**
@@ -161,6 +165,10 @@ function runSimulation() {
   const stats = new Statistics(sim);
   const rng = new Random(RANDOM_SEED);
 
+  // Enable sample tracking for advanced statistics (v0.1.2+)
+  stats.enableSampleTracking('wait-time-minutes');
+  stats.enableSampleTracking('total-time-minutes');
+
   // Start arrival process
   sim.process(() =>
     arrivalProcess(tellers, stats, rng, sim, SIMULATION_HOURS)
@@ -201,6 +209,18 @@ function runSimulation() {
     `  Average wait time: ${stats.getAverage('wait-time-minutes').toFixed(1)} minutes`
   );
   console.log(
+    `  P50 (median): ${stats.getPercentile('wait-time-minutes', 50).toFixed(1)} minutes`
+  );
+  console.log(
+    `  P95: ${stats.getPercentile('wait-time-minutes', 95).toFixed(1)} minutes`
+  );
+  console.log(
+    `  P99: ${stats.getPercentile('wait-time-minutes', 99).toFixed(1)} minutes`
+  );
+  console.log(
+    `  Std Dev: ${stats.getStdDev('wait-time-minutes').toFixed(1)} minutes`
+  );
+  console.log(
     `  Quick transactions: ${(stats.getAverage('wait-quick') * 60).toFixed(1)} minutes`
   );
   console.log(
@@ -234,6 +254,15 @@ function runSimulation() {
   console.log('\nTime in Bank:');
   console.log(
     `  Average total time: ${stats.getAverage('total-time-minutes').toFixed(1)} minutes`
+  );
+  console.log(
+    `  P50 (median): ${stats.getPercentile('total-time-minutes', 50).toFixed(1)} minutes`
+  );
+  console.log(
+    `  P95: ${stats.getPercentile('total-time-minutes', 95).toFixed(1)} minutes`
+  );
+  console.log(
+    `  P99: ${stats.getPercentile('total-time-minutes', 99).toFixed(1)} minutes`
   );
 
   // Performance assessment
