@@ -72,12 +72,12 @@ interface ActiveUser {
  * Supports FIFO queuing when capacity is exceeded.
  */
 export class Resource {
-  private simulation: Simulation;
-  private capacity: number;
+  private readonly simulation: Simulation;
+  private readonly capacity: number;
   private inUseCount: number;
-  private queue: QueuedRequest[];
-  private activeUsers: ActiveUser[];
-  private options: Required<ResourceOptions>;
+  private readonly queue: QueuedRequest[];
+  private readonly activeUsers: ActiveUser[];
+  private readonly options: Required<ResourceOptions>;
 
   // Statistics tracking
   private totalRequestsCount: number;
@@ -309,7 +309,16 @@ export class Resource {
       } else {
         // No process provided - clean up any completed processes in activeUsers
         // This handles cases where processes complete without passing themselves to release()
-        this.activeUsers = this.activeUsers.filter((u) => u.process.isRunning);
+        const completedIndices: number[] = [];
+        for (let i = 0; i < this.activeUsers.length; i++) {
+          if (!this.activeUsers[i]!.process.isRunning) {
+            completedIndices.push(i);
+          }
+        }
+        // Remove completed processes in reverse order to maintain indices
+        for (let i = completedIndices.length - 1; i >= 0; i--) {
+          this.activeUsers.splice(completedIndices[i]!, 1);
+        }
       }
     }
 

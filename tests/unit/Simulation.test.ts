@@ -379,6 +379,18 @@ describe('Simulation', () => {
       expect(result.eventsProcessed).toBe(3);
     });
 
+    it('should populate statistics in result', () => {
+      sim.schedule(10, () => {});
+      sim.schedule(20, () => {});
+
+      const result = sim.run(25);
+
+      expect(result.statistics).toBeDefined();
+      expect(result.statistics.currentTime).toBe(25);
+      expect(result.statistics.eventsProcessed).toBe(2);
+      expect(result.statistics.eventsInQueue).toBe(0);
+    });
+
     it('should handle empty queue', () => {
       const result = sim.run(100);
 
@@ -402,6 +414,29 @@ describe('Simulation', () => {
       });
 
       sim.run();
+    });
+
+    it('should throw error for negative until parameter', () => {
+      expect(() => {
+        sim.run(-1);
+      }).toThrow('until must be non-negative');
+    });
+
+    it('should throw error for NaN until parameter', () => {
+      expect(() => {
+        sim.run(NaN);
+      }).toThrow('until must be a finite number');
+    });
+
+    it('should throw error for Infinity until parameter', () => {
+      expect(() => {
+        sim.run(Infinity);
+      }).toThrow('until must be a finite number');
+    });
+
+    it('should allow zero as until parameter', () => {
+      const result = sim.run(0);
+      expect(result.endTime).toBe(0);
     });
 
     it('should handle events scheduled during execution', () => {
@@ -488,6 +523,172 @@ describe('Simulation', () => {
       sim.schedule(10, callback);
       sim.run();
       expect(callback).toHaveBeenCalledTimes(2);
+    });
+
+    it('should interrupt running processes during reset', () => {
+      const events: string[] = [];
+
+      sim.process(function* () {
+        events.push('start');
+        try {
+          yield* timeout(100);
+          events.push('completed');
+        } catch (error) {
+          events.push('interrupted');
+        }
+      });
+
+      expect(events).toEqual(['start']);
+
+      sim.reset();
+
+      expect(events).toEqual(['start', 'interrupted']);
+    });
+
+    it('should interrupt multiple processes during reset', () => {
+      const events: string[] = [];
+
+      sim.process(function* () {
+        events.push('p1-start');
+        try {
+          yield* timeout(100);
+          events.push('p1-completed');
+        } catch (error) {
+          events.push('p1-interrupted');
+        }
+      });
+
+      sim.process(function* () {
+        events.push('p2-start');
+        try {
+          yield* timeout(50);
+          events.push('p2-completed');
+        } catch (error) {
+          events.push('p2-interrupted');
+        }
+      });
+
+      expect(events).toEqual(['p1-start', 'p2-start']);
+
+      sim.reset();
+
+      expect(events).toEqual(['p1-start', 'p2-start', 'p1-interrupted', 'p2-interrupted']);
+    });
+
+    it('should clear active processes Set after reset', () => {
+      // Create processes
+      const p1 = sim.process(function* () {
+        yield* timeout(100);
+      });
+
+      const p2 = sim.process(function* () {
+        yield* timeout(50);
+      });
+
+      // Verify they're running
+      expect(p1.isRunning).toBe(true);
+      expect(p2.isRunning).toBe(true);
+
+      // Reset
+      sim.reset();
+
+      // Verify they're interrupted
+      expect(p1.isInterrupted).toBe(true);
+      expect(p2.isInterrupted).toBe(true);
+
+      // Create new process after reset should work
+      const p3 = sim.process(function* () {
+        yield* timeout(10);
+      });
+
+      expect(p3.isRunning).toBe(true);
+
+      sim.run();
+
+      expect(p3.isCompleted).toBe(true);
+      expect(sim.now).toBe(10);
+    });
+
+    it('should interrupt processes that handle the error and continue', () => {
+      const events: string[] = [];
+
+      sim.process(function* () {
+        events.push('start');
+        try {
+          yield* timeout(100);
+          events.push('completed-after-timeout');
+        } catch (error) {
+          events.push('caught-error');
+          // Process tries to continue after catching error
+          // However, reset() clears the event queue, so any new timeouts won't execute
+        }
+        events.push('generator-finished');
+      });
+
+      expect(events).toEqual(['start']);
+
+      sim.reset();
+
+      // Process caught the error and finished (no more yields after catch)
+      expect(events).toEqual(['start', 'caught-error', 'generator-finished']);
+    });
+
+    it('should handle reset with completed processes', () => {
+      const events: string[] = [];
+
+      sim.process(function* () {
+        events.push('p1');
+        yield* timeout(5);
+        events.push('p1-done');
+      });
+
+      sim.process(function* () {
+        events.push('p2');
+        yield* timeout(100);
+        events.push('p2-done');
+      });
+
+      // Run until first process completes
+      sim.run(5);
+
+      expect(events).toEqual(['p1', 'p2', 'p1-done']);
+
+      // Reset should only interrupt the still-running process
+      sim.reset();
+
+      // p2 never completed, no error handler so just interrupted
+      expect(events).toEqual(['p1', 'p2', 'p1-done']);
+      expect(sim.now).toBe(0);
+    });
+
+    it('should handle processes with resources during reset', () => {
+      const resource = new Resource(sim, 1);
+      const events: string[] = [];
+
+      sim.process(function* () {
+        events.push('start');
+        try {
+          yield resource.request();
+          events.push('acquired');
+          yield* timeout(100);
+          resource.release();
+          events.push('released');
+        } catch (error) {
+          events.push('interrupted');
+          if (resource.available < resource.capacity) {
+            resource.release();
+            events.push('cleanup-release');
+          }
+        }
+      });
+
+      expect(events).toEqual(['start', 'acquired']);
+      expect(resource.available).toBe(0); // Resource is in use
+
+      sim.reset();
+
+      expect(events).toEqual(['start', 'acquired', 'interrupted', 'cleanup-release']);
+      expect(resource.available).toBe(1); // Resource released
     });
   });
 
@@ -681,6 +882,116 @@ describe('Simulation', () => {
       const expectedSum = (n * (n + 1)) / 2;
       expect(sum).toBe(expectedSum);
       expect(sim.now).toBe(n);
+    });
+  });
+
+  describe('event tracing', () => {
+    it('should be disabled by default', () => {
+      sim.schedule(10, () => {});
+      sim.run();
+
+      const trace = sim.getEventTrace();
+      expect(trace.length).toBe(0);
+    });
+
+    it('should enable and disable tracing', () => {
+      sim.enableEventTrace();
+      sim.schedule(10, () => {});
+      sim.run();
+
+      expect(sim.getEventTrace().length).toBe(1);
+
+      sim.disableEventTrace();
+      sim.schedule(20, () => {});
+      sim.run();
+
+      // Still just 1 event (second wasn't traced)
+      expect(sim.getEventTrace().length).toBe(1);
+    });
+
+    it('should record event details', () => {
+      sim.enableEventTrace();
+
+      sim.schedule(10, () => {}, 5); // priority 5
+      sim.schedule(20, () => {}, 3); // priority 3
+
+      sim.run();
+
+      const trace = sim.getEventTrace();
+      expect(trace.length).toBe(2);
+
+      expect(trace[0]).toMatchObject({
+        time: 10,
+        priority: 5,
+        executedAt: 1,
+      });
+
+      expect(trace[1]).toMatchObject({
+        time: 20,
+        priority: 3,
+        executedAt: 2,
+      });
+
+      // IDs should be present
+      expect(trace[0]!.id).toMatch(/^event-\d+$/);
+      expect(trace[1]!.id).toMatch(/^event-\d+$/);
+    });
+
+    it('should clear event trace', () => {
+      sim.enableEventTrace();
+
+      sim.schedule(10, () => {});
+      sim.schedule(20, () => {});
+      sim.run();
+
+      expect(sim.getEventTrace().length).toBe(2);
+
+      sim.clearEventTrace();
+      expect(sim.getEventTrace().length).toBe(0);
+    });
+
+    it('should handle priority ordering in trace', () => {
+      sim.enableEventTrace();
+
+      // Schedule with different priorities at same time
+      sim.schedule(10, () => {}, 10); // Low priority
+      sim.schedule(10, () => {}, 0);  // High priority
+      sim.schedule(10, () => {}, 5);  // Medium priority
+
+      sim.run();
+
+      const trace = sim.getEventTrace();
+      expect(trace.length).toBe(3);
+
+      // Should execute in priority order (0, 5, 10)
+      expect(trace[0]!.priority).toBe(0);
+      expect(trace[1]!.priority).toBe(5);
+      expect(trace[2]!.priority).toBe(10);
+    });
+
+    it('should work with step() method', () => {
+      sim.enableEventTrace();
+
+      sim.schedule(10, () => {});
+      sim.schedule(20, () => {});
+
+      sim.step();
+      expect(sim.getEventTrace().length).toBe(1);
+
+      sim.step();
+      expect(sim.getEventTrace().length).toBe(2);
+    });
+
+    it('should return readonly array', () => {
+      sim.enableEventTrace();
+      sim.schedule(10, () => {});
+      sim.run();
+
+      const trace = sim.getEventTrace();
+
+      // TypeScript should prevent mutation, but verify runtime behavior
+      expect(trace.length).toBe(1);
+      expect(Array.isArray(trace)).toBe(true);
     });
   });
 });

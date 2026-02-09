@@ -1,5 +1,5 @@
 import { EventQueue } from './EventQueue.js';
-import { validateNonNegative } from '../utils/validation.js';
+import { validateNonNegative, validateTime } from '../utils/validation.js';
 import { Process, type ProcessGenerator } from './Process.js';
 
 /**
@@ -54,13 +54,30 @@ type EventHandler = (...args: unknown[]) => void;
  * console.log(sim.now); // 10
  * ```
  */
+/**
+ * Event trace entry for detailed logging
+ */
+export interface EventTrace {
+  /** Event ID */
+  id: string;
+  /** Scheduled time */
+  time: number;
+  /** Event priority */
+  priority: number;
+  /** Execution timestamp */
+  executedAt: number;
+}
+
 export class Simulation {
-  private eventQueue: EventQueue;
+  private readonly eventQueue: EventQueue;
   private currentTime: number;
   private eventsProcessed: number;
-  private eventHandlers: Map<string, Set<EventHandler>>;
-  private options: Required<SimulationOptions>;
+  private readonly eventHandlers: Map<string, Set<EventHandler>>;
+  private readonly options: Required<SimulationOptions>;
   private isRunning: boolean;
+  private readonly eventTrace: EventTrace[];
+  private enableTracing: boolean;
+  private readonly activeProcesses: Set<Process>;
 
   /**
    * Create a new simulation instance.
@@ -88,6 +105,9 @@ export class Simulation {
     this.eventsProcessed = 0;
     this.eventHandlers = new Map();
     this.isRunning = false;
+    this.eventTrace = [];
+    this.enableTracing = false;
+    this.activeProcesses = new Set();
 
     this.log('Simulation created', { options: this.options });
   }
@@ -153,6 +173,7 @@ export class Simulation {
    */
   process(generatorFn: () => ProcessGenerator): Process {
     const proc = new Process(this, generatorFn);
+    this.activeProcesses.add(proc);
     proc.start();
     return proc;
   }
@@ -213,6 +234,16 @@ export class Simulation {
       priority: event.priority,
     });
 
+    // Record event trace if enabled
+    if (this.enableTracing) {
+      this.eventTrace.push({
+        id: event.id,
+        time: event.time,
+        priority: event.priority,
+        executedAt: this.eventsProcessed,
+      });
+    }
+
     // Emit step event
     this.emit('step', event);
 
@@ -252,6 +283,11 @@ export class Simulation {
       throw new Error('Simulation is already running');
     }
 
+    // Validate until parameter if provided
+    if (until !== undefined) {
+      validateTime(until, 'until', true);
+    }
+
     this.isRunning = true;
     const startEvents = this.eventsProcessed;
 
@@ -281,7 +317,7 @@ export class Simulation {
       const result: SimulationResult = {
         endTime: this.currentTime,
         eventsProcessed: this.eventsProcessed - startEvents,
-        statistics: {}, // TODO: Populate with actual statistics
+        statistics: this.statistics,
       };
 
       this.log('Simulation run completed', result);
@@ -296,6 +332,7 @@ export class Simulation {
   /**
    * Reset the simulation to its initial state.
    * Clears all scheduled events and resets the clock to initial time.
+   * Interrupts all active processes with a reset error.
    * Event handlers are preserved across resets.
    *
    * @throws {Error} If called while simulation is running
@@ -315,6 +352,19 @@ export class Simulation {
     }
 
     this.log('Resetting simulation');
+
+    // Interrupt all active processes
+    for (const process of this.activeProcesses) {
+      if (process.isRunning) {
+        try {
+          process.interrupt(new Error('Simulation reset'));
+        } catch (error) {
+          // Ignore errors during reset interruption
+          this.log('Process interruption during reset failed', { error });
+        }
+      }
+    }
+    this.activeProcesses.clear();
 
     this.eventQueue.clear();
     this.currentTime = this.options.initialTime;
@@ -402,6 +452,63 @@ export class Simulation {
   }
 
   /**
+   * Enable event tracing.
+   * When enabled, detailed information about each executed event is recorded.
+   * Use getEventTrace() to retrieve the trace.
+   *
+   * @example
+   * ```typescript
+   * sim.enableEventTrace();
+   * sim.schedule(10, () => console.log('Event 1'));
+   * sim.schedule(20, () => console.log('Event 2'));
+   * sim.run();
+   *
+   * const trace = sim.getEventTrace();
+   * console.log(`Executed ${trace.length} events`);
+   * ```
+   */
+  enableEventTrace(): void {
+    this.enableTracing = true;
+  }
+
+  /**
+   * Disable event tracing.
+   */
+  disableEventTrace(): void {
+    this.enableTracing = false;
+  }
+
+  /**
+   * Get the event trace.
+   * Returns an array of all executed events with their timing information.
+   *
+   * @returns Array of event trace entries
+   *
+   * @example
+   * ```typescript
+   * sim.enableEventTrace();
+   * // ... run simulation ...
+   * const trace = sim.getEventTrace();
+   *
+   * // Analyze execution
+   * trace.forEach(entry => {
+   *   console.log(`Event ${entry.id} at time ${entry.time}, priority ${entry.priority}`);
+   * });
+   * ```
+   */
+  getEventTrace(): readonly EventTrace[] {
+    return this.eventTrace;
+  }
+
+  /**
+   * Clear the event trace.
+   * Useful for resetting trace between simulation runs.
+   */
+  clearEventTrace(): void {
+    this.eventTrace.length = 0;
+  }
+
+  /**
    * Log a message if logging is enabled.
    * @param message - Log message
    * @param data - Additional data to log
@@ -410,5 +517,14 @@ export class Simulation {
     if (this.options.enableLogging) {
       console.log(`[Simulation @ ${this.currentTime}] ${message}`, data ?? '');
     }
+  }
+
+  /**
+   * Internal method to remove a process from active tracking.
+   * Called by Process when it completes or is interrupted.
+   * @internal
+   */
+  _removeProcess(process: Process): void {
+    this.activeProcesses.delete(process);
   }
 }

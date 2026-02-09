@@ -18,6 +18,7 @@ export class Random {
   private readonly a = 1664525; // LCG multiplier
   private readonly c = 1013904223; // LCG increment
   private readonly m = 2 ** 32; // LCG modulus
+  private readonly maxSafeSeed = 2 ** 32 - 1; // Maximum safe seed value
 
   /**
    * Create a new random number generator.
@@ -31,7 +32,10 @@ export class Random {
    * ```
    */
   constructor(seed?: number) {
-    this.seed = seed ?? Date.now();
+    // Use modulo to ensure timestamp fits within safe range
+    const initialSeed = seed ?? (Date.now() % this.maxSafeSeed);
+    this.validateSeed(initialSeed);
+    this.seed = initialSeed;
   }
 
   /**
@@ -56,7 +60,39 @@ export class Random {
    * ```
    */
   setSeed(seed: number): void {
+    this.validateSeed(seed);
     this.seed = seed;
+  }
+
+  /**
+   * Validate seed value to prevent overflow and invalid values.
+   * @param seed - Seed value to validate
+   * @private
+   */
+  private validateSeed(seed: number): void {
+    if (!Number.isFinite(seed)) {
+      throw new Error(
+        `Seed must be a finite number (got ${seed}). Use a valid integer seed for reproducible random sequences.`
+      );
+    }
+
+    if (!Number.isInteger(seed)) {
+      throw new Error(
+        `Seed must be an integer (got ${seed}). Non-integer seeds may produce inconsistent results.`
+      );
+    }
+
+    if (seed < 0) {
+      throw new Error(
+        `Seed must be non-negative (got ${seed}). Use a positive integer seed.`
+      );
+    }
+
+    if (seed > this.maxSafeSeed) {
+      throw new Error(
+        `Seed exceeds maximum safe value of ${this.maxSafeSeed} (got ${seed}). Large seeds may cause overflow in LCG calculations.`
+      );
+    }
   }
 
   /**
@@ -161,6 +197,71 @@ export class Random {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(this.uniform(min, max + 1));
+  }
+
+  /**
+   * Generate a triangularly distributed random number.
+   * Useful for modeling when you know min, max, and most likely value.
+   *
+   * @param min - Minimum value
+   * @param max - Maximum value
+   * @param mode - Most likely value (default: midpoint)
+   * @returns Triangularly distributed random number
+   *
+   * @example
+   * ```typescript
+   * // Task duration: min 5, most likely 10, max 20 minutes
+   * const duration = rng.triangular(5, 20, 10);
+   * ```
+   */
+  triangular(min: number, max: number, mode?: number): number {
+    if (min >= max) {
+      throw new Error('min must be less than max');
+    }
+    const m = mode ?? (min + max) / 2;
+    if (m < min || m > max) {
+      throw new Error('mode must be between min and max');
+    }
+
+    const u = this.next();
+    const fc = (m - min) / (max - min);
+
+    if (u < fc) {
+      return min + Math.sqrt(u * (max - min) * (m - min));
+    } else {
+      return max - Math.sqrt((1 - u) * (max - min) * (max - m));
+    }
+  }
+
+  /**
+   * Generate a Poisson distributed random integer.
+   * Commonly used for modeling the number of events in a fixed interval.
+   *
+   * @param lambda - Average rate (mean number of events)
+   * @returns Poisson distributed random integer
+   *
+   * @example
+   * ```typescript
+   * // Average 3 customers per hour
+   * const customers = rng.poisson(3);
+   * ```
+   */
+  poisson(lambda: number): number {
+    if (lambda <= 0) {
+      throw new Error('lambda must be positive');
+    }
+
+    // Knuth's algorithm for Poisson distribution
+    const L = Math.exp(-lambda);
+    let k = 0;
+    let p = 1;
+
+    do {
+      k++;
+      p *= this.next();
+    } while (p > L);
+
+    return k - 1;
   }
 
   /**

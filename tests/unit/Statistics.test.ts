@@ -344,4 +344,138 @@ describe('Statistics', () => {
       expect(stats.getCount('departures')).toBe(10);
     });
   });
+
+  describe('warm-up period', () => {
+    it('should set and get warm-up period', () => {
+      stats.setWarmupPeriod(100);
+      expect(stats.getWarmupPeriod()).toBe(100);
+    });
+
+    it('should throw error for negative warm-up period', () => {
+      expect(() => stats.setWarmupPeriod(-1)).toThrow(
+        'warmup period end time must be non-negative'
+      );
+    });
+
+    it('should correctly identify if in warm-up', () => {
+      stats.setWarmupPeriod(50);
+
+      expect(stats.isInWarmup()).toBe(true); // time = 0
+
+      sim.schedule(30, () => {
+        expect(stats.isInWarmup()).toBe(true); // time = 30
+      });
+
+      sim.schedule(60, () => {
+        expect(stats.isInWarmup()).toBe(false); // time = 60
+      });
+
+      sim.run();
+    });
+
+    it('should exclude warm-up period from time-weighted average', () => {
+      stats.setWarmupPeriod(10);
+
+      // Record value 10 at time 0 (warm-up)
+      stats.recordValue('metric', 10);
+
+      sim.schedule(10, () => {
+        // At time 10 (end of warm-up), record value 20
+        stats.recordValue('metric', 20);
+      });
+
+      sim.schedule(20, () => {
+        // At time 20, still value 20
+        // Average should be 20 (only time 10-20 counts)
+        const avg = stats.getAverage('metric');
+        expect(avg).toBe(20);
+      });
+
+      sim.run();
+    });
+
+    it('should handle warm-up period with multiple values', () => {
+      stats.setWarmupPeriod(10);
+
+      // Warm-up: value 5 from time 0-10 (excluded)
+      stats.recordValue('queue', 5);
+
+      sim.schedule(10, () => {
+        // After warm-up: value 10 from time 10-20
+        stats.recordValue('queue', 10);
+      });
+
+      sim.schedule(20, () => {
+        // After warm-up: value 20 from time 20-30
+        stats.recordValue('queue', 20);
+      });
+
+      sim.schedule(30, () => {
+        // Average should be (10*10 + 20*10) / 20 = 15
+        const avg = stats.getAverage('queue');
+        expect(avg).toBe(15);
+      });
+
+      sim.run();
+    });
+
+    it('should exclude warm-up period from timeseries', () => {
+      stats.enableTimeseries('metric');
+      stats.setWarmupPeriod(10);
+
+      stats.recordValue('metric', 5); // time 0 - should be excluded
+
+      sim.schedule(5, () => {
+        stats.recordValue('metric', 10); // time 5 - should be excluded
+      });
+
+      sim.schedule(10, () => {
+        stats.recordValue('metric', 15); // time 10 - should be included
+      });
+
+      sim.schedule(15, () => {
+        stats.recordValue('metric', 20); // time 15 - should be included
+      });
+
+      sim.run(20);
+
+      const timeseries = stats.getTimeseries('metric');
+      expect(timeseries.length).toBe(2);
+      expect(timeseries[0]).toEqual({ time: 10, value: 15 });
+      expect(timeseries[1]).toEqual({ time: 15, value: 20 });
+    });
+
+    it('should handle warm-up period equal to simulation time', () => {
+      stats.setWarmupPeriod(10);
+
+      stats.recordValue('metric', 100);
+
+      sim.schedule(10, () => {
+        // At exactly warm-up end time
+        const avg = stats.getAverage('metric');
+        expect(avg).toBe(100); // Returns current value when duration is 0
+      });
+
+      sim.run();
+    });
+
+    it('should work with zero warm-up period (default behavior)', () => {
+      // Default warm-up is 0
+      expect(stats.getWarmupPeriod()).toBe(0);
+
+      stats.recordValue('metric', 10);
+
+      sim.schedule(10, () => {
+        stats.recordValue('metric', 20);
+      });
+
+      sim.schedule(20, () => {
+        // Average should be (10*10 + 20*10) / 20 = 15
+        const avg = stats.getAverage('metric');
+        expect(avg).toBe(15);
+      });
+
+      sim.run();
+    });
+  });
 });

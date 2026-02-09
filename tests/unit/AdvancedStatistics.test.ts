@@ -373,4 +373,109 @@ describe('Advanced Statistics', () => {
       expect(p95).toBeLessThan(p99);
     });
   });
+
+  describe("Welford's Algorithm Optimization", () => {
+    beforeEach(() => {
+      stats.enableSampleTracking('values');
+    });
+
+    it('should calculate variance accurately with Welford algorithm', () => {
+      // Test with known values
+      const samples = [2, 4, 4, 4, 5, 5, 7, 9];
+      samples.forEach((s) => stats.recordSample('values', s));
+
+      // Expected: mean = 5, variance = 4
+      const mean = stats.getSampleMean('values');
+      const variance = stats.getVariance('values');
+      const stdDev = stats.getStdDev('values');
+
+      expect(mean).toBeCloseTo(5, 10);
+      expect(variance).toBeCloseTo(4, 10);
+      expect(stdDev).toBeCloseTo(2, 10);
+    });
+
+    it('should handle large datasets efficiently', () => {
+      // Generate 10,000 samples
+      const startTime = Date.now();
+
+      for (let i = 0; i < 10000; i++) {
+        stats.recordSample('values', Math.random() * 100);
+      }
+
+      const recordTime = Date.now() - startTime;
+
+      // Should be fast (O(1) per sample)
+      expect(recordTime).toBeLessThan(100); // 100ms for 10k samples
+
+      // Calculations should also be fast (O(1))
+      const calcStart = Date.now();
+      const mean = stats.getSampleMean('values');
+      const variance = stats.getVariance('values');
+      const stdDev = stats.getStdDev('values');
+      const count = stats.getSampleCount('values');
+      const calcTime = Date.now() - calcStart;
+
+      expect(calcTime).toBeLessThan(10); // Should be instant
+      expect(count).toBe(10000);
+      expect(mean).toBeGreaterThan(0);
+      expect(mean).toBeLessThan(100);
+      expect(variance).toBeGreaterThan(0);
+      expect(stdDev).toBeGreaterThan(0);
+    });
+
+    it('should maintain numerical stability', () => {
+      // Test with values that could cause numerical instability
+      const largeBase = 1e9;
+      const samples = [largeBase + 1, largeBase + 2, largeBase + 3];
+
+      samples.forEach((s) => stats.recordSample('values', s));
+
+      const mean = stats.getSampleMean('values');
+      const variance = stats.getVariance('values');
+
+      // Mean should be approximately largeBase + 2
+      expect(mean).toBeCloseTo(largeBase + 2, 5);
+
+      // Variance should be approximately 2/3 (not affected by large base)
+      expect(variance).toBeCloseTo(2 / 3, 5);
+    });
+
+    it('should produce identical results to naive calculation', () => {
+      const samples = [1.5, 2.3, 3.7, 4.1, 5.9, 6.2, 7.8, 8.4, 9.1];
+
+      samples.forEach((s) => stats.recordSample('values', s));
+
+      // Calculate expected values manually
+      const naiveMean = samples.reduce((a, b) => a + b, 0) / samples.length;
+      const naiveVariance =
+        samples.reduce((sum, val) => sum + Math.pow(val - naiveMean, 2), 0) /
+        samples.length;
+      const naiveStdDev = Math.sqrt(naiveVariance);
+
+      // Compare with Welford's algorithm results
+      const welfordMean = stats.getSampleMean('values');
+      const welfordVariance = stats.getVariance('values');
+      const welfordStdDev = stats.getStdDev('values');
+
+      // Should match within floating-point precision
+      expect(welfordMean).toBeCloseTo(naiveMean, 12);
+      expect(welfordVariance).toBeCloseTo(naiveVariance, 12);
+      expect(welfordStdDev).toBeCloseTo(naiveStdDev, 12);
+    });
+
+    it('should handle incremental updates correctly', () => {
+      // Add samples one by one and check consistency
+      stats.recordSample('values', 10);
+      expect(stats.getSampleMean('values')).toBe(10);
+      expect(stats.getVariance('values')).toBe(0);
+
+      stats.recordSample('values', 20);
+      expect(stats.getSampleMean('values')).toBe(15);
+      expect(stats.getVariance('values')).toBe(25);
+
+      stats.recordSample('values', 30);
+      expect(stats.getSampleMean('values')).toBe(20);
+      expect(stats.getVariance('values')).toBeCloseTo(66.666666, 5);
+    });
+  });
 });

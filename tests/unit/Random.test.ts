@@ -53,6 +53,60 @@ describe('Random', () => {
     });
   });
 
+  describe('seed validation', () => {
+    it('should reject NaN seed', () => {
+      expect(() => new Random(NaN)).toThrow('Seed must be a finite number');
+    });
+
+    it('should reject Infinity seed', () => {
+      expect(() => new Random(Infinity)).toThrow('Seed must be a finite number');
+    });
+
+    it('should reject negative Infinity seed', () => {
+      expect(() => new Random(-Infinity)).toThrow('Seed must be a finite number');
+    });
+
+    it('should reject non-integer seed', () => {
+      expect(() => new Random(12.5)).toThrow('Seed must be an integer');
+    });
+
+    it('should reject negative seed', () => {
+      expect(() => new Random(-1)).toThrow('Seed must be non-negative');
+    });
+
+    it('should reject seed exceeding maximum', () => {
+      const maxSafe = 2 ** 32 - 1;
+      expect(() => new Random(maxSafe + 1)).toThrow('Seed exceeds maximum safe value');
+    });
+
+    it('should accept seed at maximum boundary', () => {
+      const maxSafe = 2 ** 32 - 1;
+      const rng = new Random(maxSafe);
+      expect(rng.getSeed()).toBe(maxSafe);
+    });
+
+    it('should accept zero seed', () => {
+      const rng = new Random(0);
+      expect(rng.getSeed()).toBe(0);
+    });
+
+    it('should validate on setSeed', () => {
+      const rng = new Random(12345);
+      expect(() => rng.setSeed(NaN)).toThrow('Seed must be a finite number');
+      expect(() => rng.setSeed(-1)).toThrow('Seed must be non-negative');
+      expect(() => rng.setSeed(12.5)).toThrow('Seed must be an integer');
+    });
+
+    it('should work with valid large seed', () => {
+      const largeSeed = 2 ** 31;
+      const rng = new Random(largeSeed);
+      const value = rng.uniform(0, 1);
+
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThan(1);
+    });
+  });
+
   describe('uniform distribution', () => {
     it('should generate values in range', () => {
       const rng = new Random(12345);
@@ -301,6 +355,102 @@ describe('Random', () => {
         expect(count).toBeGreaterThan(expected - tolerance);
         expect(count).toBeLessThan(expected + tolerance);
       }
+    });
+  });
+
+  describe('triangular', () => {
+    it('should generate values between min and max', () => {
+      const rng = new Random(12345);
+      const min = 5;
+      const max = 20;
+
+      for (let i = 0; i < 1000; i++) {
+        const value = rng.triangular(min, max);
+        expect(value).toBeGreaterThanOrEqual(min);
+        expect(value).toBeLessThanOrEqual(max);
+      }
+    });
+
+    it('should use midpoint as default mode', () => {
+      const rng = new Random(12345);
+      const values = Array.from({ length: 10000 }, () => rng.triangular(0, 10));
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+
+      // Triangular with mode at midpoint should have mean close to midpoint
+      expect(mean).toBeGreaterThan(4.8);
+      expect(mean).toBeLessThan(5.2);
+    });
+
+    it('should accept custom mode', () => {
+      const rng = new Random(12345);
+      const values = Array.from({ length: 10000 }, () => rng.triangular(0, 10, 3));
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+
+      // Triangular(0, 10, 3) should have mean around (0+10+3)/3 ≈ 4.33
+      expect(mean).toBeGreaterThan(4.0);
+      expect(mean).toBeLessThan(4.7);
+    });
+
+    it('should throw error when min >= max', () => {
+      const rng = new Random();
+      expect(() => rng.triangular(10, 5)).toThrow('min must be less than max');
+      expect(() => rng.triangular(5, 5)).toThrow('min must be less than max');
+    });
+
+    it('should throw error when mode is out of range', () => {
+      const rng = new Random();
+      expect(() => rng.triangular(5, 10, 3)).toThrow('mode must be between min and max');
+      expect(() => rng.triangular(5, 10, 15)).toThrow('mode must be between min and max');
+    });
+  });
+
+  describe('poisson', () => {
+    it('should generate non-negative integers', () => {
+      const rng = new Random(12345);
+
+      for (let i = 0; i < 100; i++) {
+        const value = rng.poisson(3);
+        expect(value).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(value)).toBe(true);
+      }
+    });
+
+    it('should have mean close to lambda', () => {
+      const rng = new Random(12345);
+      const lambda = 5;
+      const values = Array.from({ length: 10000 }, () => rng.poisson(lambda));
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+
+      // Mean should be close to lambda (within 5%)
+      expect(mean).toBeGreaterThan(lambda * 0.95);
+      expect(mean).toBeLessThan(lambda * 1.05);
+    });
+
+    it('should have variance close to lambda', () => {
+      const rng = new Random(12345);
+      const lambda = 5;
+      const values = Array.from({ length: 10000 }, () => rng.poisson(lambda));
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const variance = values.reduce((sum, x) => sum + (x - mean) ** 2, 0) / values.length;
+
+      // Variance should be close to lambda (within 10%)
+      expect(variance).toBeGreaterThan(lambda * 0.90);
+      expect(variance).toBeLessThan(lambda * 1.10);
+    });
+
+    it('should throw error for non-positive lambda', () => {
+      const rng = new Random();
+      expect(() => rng.poisson(0)).toThrow('lambda must be positive');
+      expect(() => rng.poisson(-1)).toThrow('lambda must be positive');
+    });
+
+    it('should handle small lambda values', () => {
+      const rng = new Random(12345);
+      const values = Array.from({ length: 1000 }, () => rng.poisson(0.5));
+
+      // Most values should be 0 or 1 for small lambda
+      const allSmall = values.every(v => v >= 0 && v < 5);
+      expect(allSmall).toBe(true);
     });
   });
 

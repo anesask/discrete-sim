@@ -48,23 +48,31 @@ export interface HistogramBin {
  * ```
  */
 export class Statistics {
-  private simulation: Simulation;
+  private readonly simulation: Simulation;
 
   // Time-weighted averages
-  private values: Map<string, number> = new Map(); // Current values
-  private valueSums: Map<string, number> = new Map(); // Time-weighted sums
-  private lastUpdateTimes: Map<string, number> = new Map(); // Last update time
+  private readonly values: Map<string, number> = new Map(); // Current values
+  private readonly valueSums: Map<string, number> = new Map(); // Time-weighted sums
+  private readonly lastUpdateTimes: Map<string, number> = new Map(); // Last update time
 
   // Counters
-  private counters: Map<string, number> = new Map();
+  private readonly counters: Map<string, number> = new Map();
 
   // Timeseries
-  private timeseries: Map<string, TimePoint[]> = new Map();
-  private recordTimeseries: Set<string> = new Set(); // Which metrics to record as timeseries
+  private readonly timeseries: Map<string, TimePoint[]> = new Map();
+  private readonly recordTimeseries: Set<string> = new Set(); // Which metrics to record as timeseries
 
   // Sample tracking (for percentiles, variance, histograms)
-  private samples: Map<string, number[]> = new Map(); // Raw sample values
-  private trackSamples: Set<string> = new Set(); // Which metrics to track samples for
+  private readonly samples: Map<string, number[]> = new Map(); // Raw sample values
+  private readonly trackSamples: Set<string> = new Set(); // Which metrics to track samples for
+
+  // Welford's algorithm for online variance calculation
+  private readonly sampleCounts: Map<string, number> = new Map(); // Number of samples
+  private readonly sampleMeans: Map<string, number> = new Map(); // Running mean
+  private readonly sampleM2s: Map<string, number> = new Map(); // Running sum of squared deviations
+
+  // Warm-up period
+  private warmupEndTime: number = 0;
 
   /**
    * Create a new statistics collector.
@@ -73,6 +81,50 @@ export class Statistics {
    */
   constructor(simulation: Simulation) {
     this.simulation = simulation;
+  }
+
+  /**
+   * Set the warm-up period end time.
+   * Statistics collected before this time will be excluded from calculations.
+   * This is useful for excluding initial transient behavior from steady-state analysis.
+   *
+   * @param endTime - Simulation time when warm-up period ends
+   *
+   * @example
+   * ```typescript
+   * const stats = new Statistics(sim);
+   * stats.setWarmupPeriod(1000); // Exclude first 1000 time units
+   *
+   * // Run simulation
+   * sim.run(5000);
+   *
+   * // Statistics only include time >= 1000
+   * const avgQueueLength = stats.getAverage('queue-length');
+   * ```
+   */
+  setWarmupPeriod(endTime: number): void {
+    if (endTime < 0) {
+      throw new Error('warmup period end time must be non-negative');
+    }
+    this.warmupEndTime = endTime;
+  }
+
+  /**
+   * Get the current warm-up period end time.
+   *
+   * @returns Warm-up period end time
+   */
+  getWarmupPeriod(): number {
+    return this.warmupEndTime;
+  }
+
+  /**
+   * Check if simulation is currently in warm-up period.
+   *
+   * @returns True if current time is before warm-up end time
+   */
+  isInWarmup(): boolean {
+    return this.simulation.now < this.warmupEndTime;
   }
 
   /**
@@ -95,18 +147,24 @@ export class Statistics {
     if (this.values.has(name)) {
       const previousValue = this.values.get(name)!;
       const previousTime = this.lastUpdateTimes.get(name)!;
-      const timeDelta = currentTime - previousTime;
 
-      const currentSum = this.valueSums.get(name) || 0;
-      this.valueSums.set(name, currentSum + previousValue * timeDelta);
+      // Only accumulate time after warm-up period
+      const effectiveStartTime = Math.max(previousTime, this.warmupEndTime);
+      const effectiveEndTime = currentTime;
+
+      if (effectiveEndTime > effectiveStartTime) {
+        const timeDelta = effectiveEndTime - effectiveStartTime;
+        const currentSum = this.valueSums.get(name) || 0;
+        this.valueSums.set(name, currentSum + previousValue * timeDelta);
+      }
     }
 
     // Update current value and time
     this.values.set(name, value);
     this.lastUpdateTimes.set(name, currentTime);
 
-    // Record timeseries if enabled for this metric
-    if (this.recordTimeseries.has(name)) {
+    // Record timeseries if enabled for this metric (exclude warm-up if configured)
+    if (this.recordTimeseries.has(name) && currentTime >= this.warmupEndTime) {
       if (!this.timeseries.has(name)) {
         this.timeseries.set(name, []);
       }
@@ -135,16 +193,25 @@ export class Statistics {
     const lastUpdateTime = this.lastUpdateTimes.get(name)!;
     const previousSum = this.valueSums.get(name) || 0;
 
-    // Add the contribution from the current value
-    const timeDelta = currentTime - lastUpdateTime;
-    const totalSum = previousSum + currentValue * timeDelta;
+    // Add the contribution from the current value (only after warm-up)
+    const effectiveStartTime = Math.max(lastUpdateTime, this.warmupEndTime);
+    const effectiveEndTime = currentTime;
+
+    let totalSum = previousSum;
+    if (effectiveEndTime > effectiveStartTime) {
+      const timeDelta = effectiveEndTime - effectiveStartTime;
+      totalSum = previousSum + currentValue * timeDelta;
+    }
+
+    // Calculate effective duration (excluding warm-up period)
+    const effectiveDuration = Math.max(0, currentTime - this.warmupEndTime);
 
     // Avoid division by zero
-    if (currentTime === 0) {
+    if (effectiveDuration === 0) {
       return currentValue;
     }
 
-    return totalSum / currentTime;
+    return totalSum / effectiveDuration;
   }
 
   /**
@@ -362,6 +429,10 @@ export class Statistics {
     this.counters.clear();
     this.timeseries.clear();
     this.samples.clear();
+    // Clear Welford's algorithm state
+    this.sampleCounts.clear();
+    this.sampleMeans.clear();
+    this.sampleM2s.clear();
     // Keep recordTimeseries and trackSamples settings
   }
 
@@ -416,11 +487,29 @@ export class Statistics {
       return; // Silently ignore if not tracking samples for this metric
     }
 
+    // Store raw sample (for percentiles and histograms)
     if (!this.samples.has(name)) {
       this.samples.set(name, []);
     }
-
     this.samples.get(name)!.push(value);
+
+    // Update Welford's algorithm statistics (for mean and variance)
+    const count = (this.sampleCounts.get(name) || 0) + 1;
+    const oldMean = this.sampleMeans.get(name) || 0;
+    const oldM2 = this.sampleM2s.get(name) || 0;
+
+    // Welford's online algorithm:
+    // delta = value - oldMean
+    // mean = oldMean + delta / count
+    // M2 = M2 + delta * (value - mean)
+    const delta = value - oldMean;
+    const newMean = oldMean + delta / count;
+    const delta2 = value - newMean;
+    const newM2 = oldM2 + delta * delta2;
+
+    this.sampleCounts.set(name, count);
+    this.sampleMeans.set(name, newMean);
+    this.sampleM2s.set(name, newM2);
   }
 
   /**
@@ -465,8 +554,9 @@ export class Statistics {
   }
 
   /**
-   * Get the variance of a metric.
+   * Get the variance of a metric using Welford's online algorithm.
    * Sample tracking must be enabled for this metric.
+   * Uses O(1) computation based on incrementally updated statistics.
    *
    * @param name - Metric name
    * @returns Variance, or 0 if no samples
@@ -477,19 +567,15 @@ export class Statistics {
    * ```
    */
   getVariance(name: string): number {
-    const sampleData = this.samples.get(name);
-    if (!sampleData || sampleData.length === 0) {
+    const count = this.sampleCounts.get(name);
+    const m2 = this.sampleM2s.get(name);
+
+    if (!count || count === 0 || m2 === undefined) {
       return 0;
     }
 
-    // Calculate mean
-    const mean = sampleData.reduce((sum, val) => sum + val, 0) / sampleData.length;
-
-    // Calculate variance
-    const squaredDiffs = sampleData.map((val) => Math.pow(val - mean, 2));
-    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / sampleData.length;
-
-    return variance;
+    // Population variance: M2 / n
+    return m2 / count;
   }
 
   /**
@@ -541,28 +627,26 @@ export class Statistics {
   /**
    * Get the sample mean (arithmetic average) of a metric.
    * Sample tracking must be enabled for this metric.
+   * Uses O(1) computation based on Welford's incrementally updated mean.
    *
    * @param name - Metric name
    * @returns Mean value, or 0 if no samples
    */
   getSampleMean(name: string): number {
-    const sampleData = this.samples.get(name);
-    if (!sampleData || sampleData.length === 0) {
-      return 0;
-    }
-    return sampleData.reduce((sum, val) => sum + val, 0) / sampleData.length;
+    const mean = this.sampleMeans.get(name);
+    return mean !== undefined ? mean : 0;
   }
 
   /**
    * Get the number of samples recorded for a metric.
    * Sample tracking must be enabled for this metric.
+   * Uses O(1) computation based on incrementally updated count.
    *
    * @param name - Metric name
    * @returns Number of samples
    */
   getSampleCount(name: string): number {
-    const sampleData = this.samples.get(name);
-    return sampleData ? sampleData.length : 0;
+    return this.sampleCounts.get(name) || 0;
   }
 
   /**

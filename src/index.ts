@@ -12,7 +12,9 @@ export {
   ProcessGenerator,
   Timeout,
   Condition,
+  WaitForOptions,
   PreemptionError,
+  ConditionTimeoutError,
   timeout,
   waitFor,
 } from './core/Process.js';

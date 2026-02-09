@@ -37,6 +37,16 @@ export class Timeout {
 }
 
 /**
+ * Configuration options for waitFor condition polling.
+ */
+export interface WaitForOptions {
+  /** Polling interval in simulation time units (default: 1) */
+  interval?: number;
+  /** Maximum number of polling iterations before timeout (default: Infinity) */
+  maxIterations?: number;
+}
+
+/**
  * Yielded value representing a condition to wait for.
  * Created by waitFor() helper function.
  * Do not instantiate directly - use waitFor() instead.
@@ -45,11 +55,54 @@ export class Timeout {
  * ```typescript
  * function* myProcess() {
  *   yield* waitFor(() => someValue > 10);
+ *
+ *   // With custom polling interval
+ *   yield* waitFor(() => someValue > 20, { interval: 5 });
+ *
+ *   // With max iterations to prevent infinite loops
+ *   yield* waitFor(() => someValue > 30, { maxIterations: 100 });
  * }
  * ```
  */
 export class Condition {
-  constructor(public readonly predicate: () => boolean) {}
+  public readonly interval: number;
+  public readonly maxIterations: number;
+
+  constructor(
+    public readonly predicate: () => boolean,
+    options: WaitForOptions = {}
+  ) {
+    this.interval = options.interval ?? 1;
+    this.maxIterations = options.maxIterations ?? Infinity;
+
+    // Validate interval
+    if (!Number.isFinite(this.interval)) {
+      throw new ValidationError(
+        `interval must be a finite number (got ${this.interval})`,
+        { interval: this.interval }
+      );
+    }
+    validateNonNegative(
+      this.interval,
+      'interval',
+      'Polling interval must be non-negative'
+    );
+
+    // Validate maxIterations
+    if (!Number.isFinite(this.maxIterations) && this.maxIterations !== Infinity) {
+      throw new ValidationError(
+        `maxIterations must be a finite number or Infinity (got ${this.maxIterations})`,
+        { maxIterations: this.maxIterations }
+      );
+    }
+    if (this.maxIterations !== Infinity) {
+      validateNonNegative(
+        this.maxIterations,
+        'maxIterations',
+        'Maximum iterations must be non-negative'
+      );
+    }
+  }
 }
 
 /**
@@ -76,6 +129,35 @@ export class PreemptionError extends Error {
     super(message);
     this.name = 'PreemptionError';
     Object.setPrototypeOf(this, PreemptionError.prototype);
+  }
+}
+
+/**
+ * Error thrown when a waitFor condition exceeds maximum iterations.
+ * This error is thrown into the generator when polling a condition
+ * reaches the maxIterations limit without the condition becoming true.
+ *
+ * @example
+ * ```typescript
+ * function* myProcess() {
+ *   try {
+ *     yield* waitFor(() => someValue > 10, { maxIterations: 100 });
+ *   } catch (error) {
+ *     if (error instanceof ConditionTimeoutError) {
+ *       console.log('Condition timed out after 100 iterations');
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export class ConditionTimeoutError extends Error {
+  constructor(
+    message: string,
+    public readonly iterations: number
+  ) {
+    super(message);
+    this.name = 'ConditionTimeoutError';
+    Object.setPrototypeOf(this, ConditionTimeoutError.prototype);
   }
 }
 
@@ -127,8 +209,8 @@ type ProcessState = 'pending' | 'running' | 'completed' | 'interrupted';
  * ```
  */
 export class Process {
-  private simulation: Simulation;
-  private generator: ProcessGenerator;
+  private readonly simulation: Simulation;
+  private readonly generator: ProcessGenerator;
   private state: ProcessState;
   private interruptReason?: Error;
 
@@ -298,11 +380,13 @@ export class Process {
         } else {
           // Generator completed after handling interrupt
           this.state = 'completed';
+          this.simulation._removeProcess(this);
           return;
         }
       } catch (error) {
         // Process didn't handle the interrupt, so it terminates
         this.state = 'interrupted';
+        this.simulation._removeProcess(this);
         return;
       }
     }
@@ -316,6 +400,7 @@ export class Process {
 
       if (result.done) {
         this.state = 'completed';
+        this.simulation._removeProcess(this);
         return;
       }
 
@@ -340,15 +425,20 @@ export class Process {
     } catch (error) {
       // Unhandled error in process
       this.state = 'interrupted';
+      this.simulation._removeProcess(this);
       throw error;
     }
   }
 
   /**
    * Wait for a condition to become true.
+   * Polls the condition at the specified interval.
+   * Throws ConditionTimeoutError if maxIterations is exceeded.
    * @private
    */
   private waitForCondition(condition: Condition): void {
+    let iterations = 0;
+
     const checkCondition = () => {
       if (this.state !== 'running') {
         return;
@@ -358,12 +448,26 @@ export class Process {
         // Condition met, continue process
         this.step();
       } else {
-        // Check again next time unit
-        this.simulation.schedule(1, checkCondition);
+        // Check if we've exceeded max iterations
+        iterations++;
+        if (iterations > condition.maxIterations) {
+          // Throw timeout error into the process
+          const error = new ConditionTimeoutError(
+            `Condition timeout: exceeded ${condition.maxIterations} iterations`,
+            iterations - 1
+          );
+          this.state = 'interrupted';
+          this.interruptReason = error;
+          this.step();
+          return;
+        }
+
+        // Schedule next check after interval
+        this.simulation.schedule(condition.interval, checkCondition);
       }
     };
 
-    // Check immediately
+    // Check immediately (iteration 0)
     checkCondition();
   }
 }
@@ -389,15 +493,29 @@ export function* timeout(delay: number): Generator<Timeout, void, void> {
  * Use with yield* in generator functions.
  *
  * @param predicate - Function that returns true when condition is met
+ * @param options - Configuration options for polling behavior
  * @returns Generator that yields a Condition
  *
  * @example
+ * ```typescript
  * function* myProcess() {
+ *   // Default: poll every 1 time unit indefinitely
  *   yield* waitFor(() => someValue > 10);
+ *
+ *   // Custom interval: poll every 5 time units
+ *   yield* waitFor(() => someValue > 20, { interval: 5 });
+ *
+ *   // With timeout: max 100 iterations (throws ConditionTimeoutError if exceeded)
+ *   yield* waitFor(() => someValue > 30, { maxIterations: 100 });
+ *
+ *   // Combined: poll every 10 time units, max 50 iterations
+ *   yield* waitFor(() => someValue > 40, { interval: 10, maxIterations: 50 });
  * }
+ * ```
  */
 export function* waitFor(
-  predicate: () => boolean
+  predicate: () => boolean,
+  options?: WaitForOptions
 ): Generator<Condition, void, void> {
-  yield new Condition(predicate);
+  yield new Condition(predicate, options);
 }

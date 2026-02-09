@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Simulation } from '../../src/core/Simulation';
-import { Process, timeout, waitFor, Timeout } from '../../src/core/Process';
+import { Process, timeout, waitFor, Timeout, ConditionTimeoutError } from '../../src/core/Process';
 import { Resource } from '../../src/resources/Resource';
 
 describe('Process', () => {
@@ -334,6 +334,200 @@ describe('Process', () => {
       sim.run();
 
       expect(events).toEqual(['start', 'condition-met']);
+    });
+
+    it('should use custom polling interval', () => {
+      let counter = 0;
+      const checkTimes: number[] = [];
+
+      function* processGen() {
+        yield* waitFor(() => {
+          checkTimes.push(sim.now);
+          return counter >= 5;
+        }, { interval: 5 });
+      }
+
+      const process = new Process(sim, processGen);
+      process.start();
+
+      // Increment counter every time unit
+      for (let i = 0; i < 30; i++) {
+        sim.schedule(i, () => {
+          counter++;
+        });
+      }
+
+      sim.run();
+
+      expect(process.isCompleted).toBe(true);
+      // Should check at: 0, 5, 10, 15, 20, 25 (meets at 5)
+      expect(checkTimes).toEqual([0, 5]);
+    });
+
+    it('should throw ConditionTimeoutError when maxIterations exceeded', () => {
+      const events: string[] = [];
+      let errorCaught = false;
+
+      function* processGen() {
+        events.push('start');
+        try {
+          yield* waitFor(() => false, { maxIterations: 5 });
+          events.push('condition-met');
+        } catch (error) {
+          events.push('error-caught');
+          if (error instanceof ConditionTimeoutError) {
+            errorCaught = true;
+            expect(error.iterations).toBe(5);
+            expect(error.message).toContain('exceeded 5 iterations');
+          }
+        }
+        events.push('end');
+      }
+
+      const process = new Process(sim, processGen);
+      process.start();
+      sim.run();
+
+      expect(events).toEqual(['start', 'error-caught', 'end']);
+      expect(errorCaught).toBe(true);
+      expect(process.isCompleted).toBe(true);
+    });
+
+    it('should work with custom interval and maxIterations', () => {
+      let counter = 0;
+      const checkTimes: number[] = [];
+      let errorCaught = false;
+
+      function* processGen() {
+        try {
+          yield* waitFor(() => {
+            checkTimes.push(sim.now);
+            return counter >= 100; // Never true
+          }, { interval: 10, maxIterations: 3 });
+        } catch (error) {
+          if (error instanceof ConditionTimeoutError) {
+            errorCaught = true;
+            expect(error.iterations).toBe(3);
+          }
+        }
+      }
+
+      const process = new Process(sim, processGen);
+      process.start();
+      sim.run();
+
+      expect(errorCaught).toBe(true);
+      // Should check at: 0, 10, 20, 30 (timeout after 30)
+      expect(checkTimes).toEqual([0, 10, 20, 30]);
+      expect(sim.now).toBe(30);
+    });
+
+    it('should handle maxIterations of 0', () => {
+      let errorCaught = false;
+
+      function* processGen() {
+        try {
+          yield* waitFor(() => false, { maxIterations: 0 });
+        } catch (error) {
+          if (error instanceof ConditionTimeoutError) {
+            errorCaught = true;
+            expect(error.iterations).toBe(0);
+          }
+        }
+      }
+
+      const process = new Process(sim, processGen);
+      process.start();
+      sim.run();
+
+      expect(errorCaught).toBe(true);
+      expect(sim.now).toBe(0);
+    });
+
+    it('should validate interval parameter', () => {
+      expect(() => {
+        waitFor(() => true, { interval: -1 }).next();
+      }).toThrow('interval must be non-negative');
+
+      expect(() => {
+        waitFor(() => true, { interval: NaN }).next();
+      }).toThrow('interval must be a finite number');
+
+      expect(() => {
+        waitFor(() => true, { interval: Infinity }).next();
+      }).toThrow('interval must be a finite number');
+    });
+
+    it('should validate maxIterations parameter', () => {
+      expect(() => {
+        waitFor(() => true, { maxIterations: -1 }).next();
+      }).toThrow('maxIterations must be non-negative');
+
+      expect(() => {
+        waitFor(() => true, { maxIterations: NaN }).next();
+      }).toThrow('maxIterations must be a finite number or Infinity');
+    });
+
+    it('should allow Infinity as maxIterations', () => {
+      let counter = 0;
+
+      function* processGen() {
+        yield* waitFor(() => counter >= 5, { maxIterations: Infinity });
+      }
+
+      const process = new Process(sim, processGen);
+      process.start();
+
+      // Increment counter every time unit
+      for (let i = 0; i < 10; i++) {
+        sim.schedule(i, () => {
+          counter++;
+        });
+      }
+
+      sim.run();
+
+      expect(process.isCompleted).toBe(true);
+    });
+
+    it('should not count initial check as an iteration', () => {
+      const checkTimes: number[] = [];
+
+      function* processGen() {
+        yield* waitFor(() => {
+          checkTimes.push(sim.now);
+          return sim.now >= 3;
+        }, { interval: 1, maxIterations: 3 });
+      }
+
+      const process = new Process(sim, processGen);
+      process.start();
+      sim.run();
+
+      // Initial check at 0, then iterations at 1, 2, 3
+      expect(checkTimes).toEqual([0, 1, 2, 3]);
+      expect(process.isCompleted).toBe(true);
+    });
+
+    it('should allow interval of 0 for immediate rechecks', () => {
+      let counter = 0;
+      const checkTimes: number[] = [];
+
+      function* processGen() {
+        yield* waitFor(() => {
+          checkTimes.push(sim.now);
+          counter++;
+          return counter >= 3;
+        }, { interval: 0 });
+      }
+
+      const process = new Process(sim, processGen);
+      process.start();
+      sim.run();
+
+      expect(process.isCompleted).toBe(true);
+      // All checks happen at time 0 (immediate rechecks)
+      expect(checkTimes).toEqual([0, 0, 0]);
     });
   });
 

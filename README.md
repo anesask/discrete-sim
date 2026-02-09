@@ -1,11 +1,15 @@
 # discrete-sim
 
-[![npm version](https://badge.fury.io/js/discrete-sim.svg)](https://www.npmjs.com/package/discrete-sim)
-[![npm downloads](https://img.shields.io/npm/dm/discrete-sim.svg)](https://www.npmjs.com/package/discrete-sim)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/discrete-sim.svg?style=flat-square)](https://www.npmjs.com/package/discrete-sim)
+[![npm downloads](https://img.shields.io/npm/dm/discrete-sim.svg?style=flat-square)](https://www.npmjs.com/package/discrete-sim)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![GitHub issues](https://img.shields.io/github/issues/anesask/discrete-sim?style=flat-square&logo=github)](https://github.com/anesask/discrete-sim/issues)
 
 A modern TypeScript discrete-event simulation library inspired by Python's SimPy.
 Build and analyze complex systems with intuitive, generator-based process modeling.
+
+**New to discrete-event simulation?** Check out the [Beginner's Guide](GUIDE.md) for tutorials and FAQs.
 
 ## Features
 
@@ -94,6 +98,12 @@ function* myProcess() {
   yield resource.request();    // Wait for resource
   yield* timeout(10);          // Use resource for 10 units
   resource.release();          // Release resource
+
+  // Wait for condition with custom polling
+  yield* waitFor(() => someValue > 10, {
+    interval: 5,         // Check every 5 time units
+    maxIterations: 100   // Timeout after 100 checks
+  });
 }
 
 // Create and start a process
@@ -123,6 +133,69 @@ Resources automatically track:
 - Average wait time
 - Average queue length
 
+**Priority Queuing:**
+
+Resources support priority-based queuing where lower priority values get served first:
+
+```typescript
+const server = new Resource(sim, 1, { name: 'Server' });
+
+function* customer(priority: number) {
+  yield server.request(priority);  // 0 = highest priority
+  yield* timeout(5);
+  server.release();
+}
+
+// High priority customer (0) will be served before low priority (10)
+sim.process(() => customer(10));  // Low priority
+sim.process(() => customer(0));   // High priority - goes first
+```
+
+**Preemptive Resources:**
+
+Preemptive resources allow higher-priority processes to interrupt lower-priority ones:
+
+```typescript
+import { Resource, PreemptionError } from 'discrete-sim';
+
+const server = new Resource(sim, 1, {
+  name: 'Server',
+  preemptive: true  // Enable preemption
+});
+
+function* lowPriorityJob() {
+  try {
+    yield server.request(10);  // Low priority
+    yield* timeout(100);       // Long job
+    server.release();
+  } catch (err) {
+    if (err instanceof PreemptionError) {
+      console.log('Job was preempted by higher priority request');
+      // Handle preemption - cleanup, retry, etc.
+    }
+  }
+}
+
+function* highPriorityJob() {
+  yield server.request(0);  // High priority - will preempt low priority
+  yield* timeout(5);
+  server.release();
+}
+
+// Low priority starts first but gets interrupted
+const p1 = new Process(sim, lowPriorityJob);
+const p2 = new Process(sim, highPriorityJob);
+p1.start();
+sim.schedule(10, () => p2.start());  // High priority arrives later
+
+sim.run();
+```
+
+When preemption occurs:
+- The preempted process throws a `PreemptionError`
+- The process can catch this error to handle cleanup
+- Statistics track the total number of preemptions
+
 ### Statistics
 
 Collect and analyze simulation data with comprehensive metrics:
@@ -150,13 +223,19 @@ const p50 = stats.getPercentile('wait-time', 50);  // Median
 const p95 = stats.getPercentile('wait-time', 95);
 const p99 = stats.getPercentile('wait-time', 99);
 
-// Variance and standard deviation
-const variance = stats.getVariance('wait-time');
-const stdDev = stats.getStdDev('wait-time');
+// Variance and standard deviation (optimized with Welford's algorithm)
+const variance = stats.getVariance('wait-time');  // O(1) - instant!
+const stdDev = stats.getStdDev('wait-time');      // O(1) - instant!
 
 // Histograms
 const histogram = stats.getHistogram('wait-time', 10);
+
+// Warm-up period (v0.1.3+)
+stats.setWarmupPeriod(1000); // Exclude first 1000 time units
+// Statistics now only include steady-state behavior after warm-up
 ```
+
+**Performance Note:** Mean, variance, and standard deviation calculations use Welford's online algorithm for O(1) computation, making them instantaneous even with millions of samples.
 
 ### Random Number Generation
 
@@ -169,6 +248,8 @@ const u = rng.uniform(0, 10);          // Uniform [0, 10)
 const e = rng.exponential(mean: 5);    // Exponential (lambda=1/5)
 const n = rng.normal(mean: 100, stdDev: 15);  // Normal
 const i = rng.randint(1, 6);           // Integer [1, 6]
+const t = rng.triangular(5, 20, 10);   // Triangular (min, max, mode)
+const p = rng.poisson(3);              // Poisson (lambda=3)
 ```
 
 ### Error Handling & Validation
@@ -221,6 +302,48 @@ try {
 - Cannot release resources that aren't in use
 - Process state transitions must be valid (can't start a running process)
 - Generator functions must yield proper types (Timeout, ResourceRequest, Condition)
+- Random seeds must be finite integers within safe range (0 to 2^32-1)
+
+### Debugging & Event Tracing
+
+Enable detailed event tracing for debugging and analysis:
+
+```typescript
+import { Simulation } from 'discrete-sim';
+
+const sim = new Simulation();
+
+// Enable event tracing
+sim.enableEventTrace();
+
+sim.schedule(10, () => console.log('Event 1'), 5);
+sim.schedule(20, () => console.log('Event 2'), 3);
+sim.schedule(10, () => console.log('Event 3'), 0);
+
+sim.run();
+
+// Get execution trace
+const trace = sim.getEventTrace();
+
+trace.forEach(entry => {
+  console.log(`Event ${entry.id}:`);
+  console.log(`  Time: ${entry.time}`);
+  console.log(`  Priority: ${entry.priority}`);
+  console.log(`  Executed at: ${entry.executedAt}`);
+});
+
+// Clear trace for next run
+sim.clearEventTrace();
+
+// Disable tracing when done
+sim.disableEventTrace();
+```
+
+Event tracing is useful for:
+- Understanding event execution order
+- Debugging priority scheduling issues
+- Performance analysis
+- Verifying simulation correctness
 
 ## Examples
 
@@ -311,6 +434,16 @@ class Simulation {
   on(event: 'step' | 'complete' | 'error', handler: Function): void;
   off(event: string, handler: Function): void;
 }
+
+interface SimulationResult {
+  endTime: number;           // Final simulation time
+  eventsProcessed: number;   // Number of events processed
+  statistics: {              // Simulation statistics
+    currentTime: number;
+    eventsProcessed: number;
+    eventsInQueue: number;
+  };
+}
 ```
 
 ### Process
@@ -329,7 +462,20 @@ class Process {
 
 // Helper functions
 function* timeout(delay: number): Generator<Timeout, void, void>;
-function* waitFor(predicate: () => boolean): Generator<Condition, void, void>;
+function* waitFor(
+  predicate: () => boolean,
+  options?: WaitForOptions
+): Generator<Condition, void, void>;
+
+interface WaitForOptions {
+  interval?: number;        // Polling interval (default: 1)
+  maxIterations?: number;   // Max iterations before timeout (default: Infinity)
+}
+
+// Error types
+class ConditionTimeoutError extends Error {
+  iterations: number;
+}
 ```
 
 ### Resource
@@ -391,14 +537,21 @@ class Statistics {
 class Random {
   constructor(seed?: number);
 
+  // Continuous distributions
   uniform(min: number, max: number): number;
   exponential(mean: number): number;
   normal(mean: number, stdDev: number): number;
-  randint(min: number, max: number): number;
+  triangular(min: number, max: number, mode?: number): number;
 
+  // Discrete distributions
+  randint(min: number, max: number): number;
+  poisson(lambda: number): number;
+
+  // Array operations
   choice<T>(array: T[]): T;
   shuffle<T>(array: T[]): T[];
 
+  // Seed management
   getSeed(): number;
   setSeed(seed: number): void;
 }
@@ -468,7 +621,10 @@ Binary min-heap priority queue with O(log n) operations. Events ordered by:
 Generator-based with synchronous execution until first yield. Supports:
 - `timeout(delay)`: Wait for time to pass
 - `resource.request()`: Acquire resource (returns token to yield)
-- `waitFor(predicate)`: Wait for condition
+- `waitFor(predicate, options)`: Wait for condition with configurable polling
+  - `interval`: Polling interval in simulation time (default: 1)
+  - `maxIterations`: Maximum polling attempts before timeout (default: Infinity)
+  - Throws `ConditionTimeoutError` when max iterations exceeded
 
 ### Resource Management
 
@@ -481,7 +637,58 @@ Time-weighted averaging for continuous metrics:
 average = sum(value_i * duration_i) / total_time
 ```
 
-This correctly handles metrics like queue length and utilization.
+Sample statistics (mean, variance, standard deviation) use Welford's online algorithm for O(1) incremental updates with excellent numerical stability.
+
+## Limitations & Performance
+
+### Scale Considerations
+
+discrete-sim is designed for **small to medium-scale simulations** (up to ~100,000 events). Performance characteristics:
+
+- **10,000 events**: ~100ms (excellent for prototyping and education)
+- **100,000 events**: ~1-2s (good for most practical applications)
+- **1,000,000+ events**: May become slow (8-15 minutes) due to JavaScript's performance characteristics
+
+These benchmarks are for single simulation runs. 
+For Monte Carlo analysis with multiple independent runs, consider using Node.js worker threads for parallelization.
+
+### Memory Considerations
+
+- **Event queue**: Each event uses ~100-150 bytes of memory
+- **Statistics with sample tracking**: Stores all samples in memory - can grow large for long simulations
+- **Timeseries recording**: Unbounded growth - use selectively for critical metrics
+- **Practical limit**: ~1-2 million concurrent events before memory pressure on typical systems
+
+### When to Consider Alternatives
+
+Consider **SimPy** (Python) or other tools if you need:
+
+- **Very large-scale simulations** (millions of events with heavy statistics)
+- **High-performance computing** requirements
+- **Integration with scientific Python** (NumPy, SciPy, Pandas) for complex analysis
+- **Parallel simulation** across dozens of CPU cores
+- **Academic research** where Python is the established standard
+
+### When discrete-sim is the Right Choice
+
+Use discrete-sim when you need:
+
+- **Web applications** or browser-based simulation dashboards
+- **Integration with Node.js/TypeScript** codebases
+- **Type safety and excellent IDE support** for development
+- **Zero dependencies** and lightweight deployment
+- **Serverless environments** (AWS Lambda, Cloudflare Workers)
+- **Interactive teaching tools** with immediate feedback
+- **Rapid prototyping** with modern JavaScript tooling
+
+### Performance Tips
+
+1. **Disable sample tracking** when not needed - use time-weighted averages instead
+2. **Limit timeseries recording** to critical metrics only
+3. **Use warm-up periods** to exclude initial transient behavior
+4. **Batch independent simulations** using worker threads for Monte Carlo analysis
+5. **Profile before optimizing** - use event tracing to identify bottlenecks
+6. **Statistics are optimized** - Mean, variance, and standard deviation use Welford's online algorithm (O(1) queries)
 
 ## Design Decisions
 
