@@ -390,4 +390,97 @@ describe('Priority Queues', () => {
       expect(results[3]).toBe('Regular2');
     });
   });
+
+  describe('binary search optimization', () => {
+    it('should maintain correct priority order with many queued requests', () => {
+      function* occupier() {
+        yield server.request();
+        yield* timeout(1);
+        server.release();
+      }
+
+      function* customer(id: number, priority: number) {
+        yield server.request(priority);
+        results.push(`${priority}-${id}`);
+        server.release();
+      }
+
+      // Occupy server first
+      sim.process(occupier);
+
+      // Create many requests with various priorities (will all queue)
+      for (let i = 0; i < 100; i++) {
+        const priority = Math.floor(Math.random() * 10);
+        sim.process(() => customer(i, priority));
+      }
+
+      sim.run();
+
+      // Verify results are in priority order
+      for (let i = 1; i < results.length; i++) {
+        const prevPriority = parseInt(results[i - 1]!.split('-')[0]!);
+        const currPriority = parseInt(results[i]!.split('-')[0]!);
+        expect(currPriority).toBeGreaterThanOrEqual(prevPriority);
+      }
+
+      // Verify all customers were served
+      expect(results.length).toBe(100);
+    });
+
+    it('should maintain FIFO order within same priority', () => {
+      function* occupier() {
+        yield server.request();
+        yield* timeout(1);
+        server.release();
+      }
+
+      function* customer(id: number) {
+        yield server.request(5); // All same priority
+        results.push(`${id}`);
+        server.release();
+      }
+
+      // Occupy server
+      sim.process(occupier);
+
+      // Queue 10 customers with same priority
+      for (let i = 0; i < 10; i++) {
+        sim.process(() => customer(i));
+      }
+
+      sim.run();
+
+      // Should be served in order: 0,1,2,3,4,5,6,7,8,9
+      expect(results).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
+    });
+
+    it('should handle interleaved priorities correctly', () => {
+      function* occupier() {
+        yield server.request();
+        yield* timeout(1);
+        server.release();
+      }
+
+      function* customer(id: string, priority: number) {
+        yield server.request(priority);
+        results.push(id);
+        server.release();
+      }
+
+      // Occupy server
+      sim.process(occupier);
+
+      // Queue in specific pattern: high, low, high, low, medium
+      sim.process(() => customer('H1', 0));
+      sim.process(() => customer('L1', 10));
+      sim.process(() => customer('H2', 0));
+      sim.process(() => customer('L2', 10));
+      sim.process(() => customer('M1', 5));
+
+      sim.run();
+
+      // Should be: H1, H2, M1, L1, L2 (priority order, FIFO within same priority)
+      expect(results).toEqual(['H1', 'H2', 'M1', 'L1', 'L2']);
+    });
+  });
 });

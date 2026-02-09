@@ -71,6 +71,12 @@ export class Statistics {
   private readonly sampleMeans: Map<string, number> = new Map(); // Running mean
   private readonly sampleM2s: Map<string, number> = new Map(); // Running sum of squared deviations
 
+  // Cached values for expensive statistics calculations
+  private readonly sortedSamplesCache: Map<string, number[]> = new Map(); // Cached sorted arrays
+  private readonly minCache: Map<string, number> = new Map(); // Cached min values
+  private readonly maxCache: Map<string, number> = new Map(); // Cached max values
+  private readonly histogramCache: Map<string, Map<number, HistogramBin[]>> = new Map(); // Cached histograms by bin count
+
   // Warm-up period
   private warmupEndTime: number = 0;
 
@@ -433,6 +439,11 @@ export class Statistics {
     this.sampleCounts.clear();
     this.sampleMeans.clear();
     this.sampleM2s.clear();
+    // Clear caches
+    this.sortedSamplesCache.clear();
+    this.minCache.clear();
+    this.maxCache.clear();
+    this.histogramCache.clear();
     // Keep recordTimeseries and trackSamples settings
   }
 
@@ -510,6 +521,21 @@ export class Statistics {
     this.sampleCounts.set(name, count);
     this.sampleMeans.set(name, newMean);
     this.sampleM2s.set(name, newM2);
+
+    // Update cached min/max values incrementally (O(1) instead of O(n))
+    const currentMin = this.minCache.get(name);
+    if (currentMin === undefined || value < currentMin) {
+      this.minCache.set(name, value);
+    }
+
+    const currentMax = this.maxCache.get(name);
+    if (currentMax === undefined || value > currentMax) {
+      this.maxCache.set(name, value);
+    }
+
+    // Invalidate caches that depend on sorted order
+    this.sortedSamplesCache.delete(name);
+    this.histogramCache.delete(name);
   }
 
   /**
@@ -533,8 +559,13 @@ export class Statistics {
       return 0;
     }
 
-    // Sort samples (copy to avoid mutating original)
-    const sorted = [...sampleData].sort((a, b) => a - b);
+    // Use cached sorted array if available
+    let sorted = this.sortedSamplesCache.get(name);
+    if (!sorted) {
+      // Sort samples (copy to avoid mutating original)
+      sorted = [...sampleData].sort((a, b) => a - b);
+      this.sortedSamplesCache.set(name, sorted);
+    }
 
     // Calculate percentile index
     const index = (percentile / 100) * (sorted.length - 1);
@@ -597,6 +628,7 @@ export class Statistics {
   /**
    * Get the minimum value of a metric.
    * Sample tracking must be enabled for this metric.
+   * Uses O(1) cached value updated incrementally.
    *
    * @param name - Metric name
    * @returns Minimum value, or 0 if no samples
@@ -606,12 +638,23 @@ export class Statistics {
     if (!sampleData || sampleData.length === 0) {
       return 0;
     }
-    return Math.min(...sampleData);
+
+    // Use cached min value (updated incrementally in recordSample)
+    const cachedMin = this.minCache.get(name);
+    if (cachedMin !== undefined) {
+      return cachedMin;
+    }
+
+    // If cache miss (shouldn't happen normally), compute and cache
+    const min = Math.min(...sampleData);
+    this.minCache.set(name, min);
+    return min;
   }
 
   /**
    * Get the maximum value of a metric.
    * Sample tracking must be enabled for this metric.
+   * Uses O(1) cached value updated incrementally.
    *
    * @param name - Metric name
    * @returns Maximum value, or 0 if no samples
@@ -621,7 +664,17 @@ export class Statistics {
     if (!sampleData || sampleData.length === 0) {
       return 0;
     }
-    return Math.max(...sampleData);
+
+    // Use cached max value (updated incrementally in recordSample)
+    const cachedMax = this.maxCache.get(name);
+    if (cachedMax !== undefined) {
+      return cachedMax;
+    }
+
+    // If cache miss (shouldn't happen normally), compute and cache
+    const max = Math.max(...sampleData);
+    this.maxCache.set(name, max);
+    return max;
   }
 
   /**
@@ -652,6 +705,7 @@ export class Statistics {
   /**
    * Generate a histogram for a metric.
    * Sample tracking must be enabled for this metric.
+   * Results are cached per bin count for performance.
    *
    * @param name - Metric name
    * @param bins - Number of bins (default: 10)
@@ -671,13 +725,24 @@ export class Statistics {
       return [];
     }
 
-    const min = Math.min(...sampleData);
-    const max = Math.max(...sampleData);
+    // Check cache for this metric and bin count
+    if (!this.histogramCache.has(name)) {
+      this.histogramCache.set(name, new Map());
+    }
+    const metricCache = this.histogramCache.get(name)!;
+    const cachedHistogram = metricCache.get(bins);
+    if (cachedHistogram) {
+      return cachedHistogram;
+    }
+
+    // Use cached min/max values (O(1) instead of O(n))
+    const min = this.getMin(name);
+    const max = this.getMax(name);
     const range = max - min;
 
     // Handle case where all values are the same (range = 0)
     if (range === 0) {
-      return [
+      const histogram = [
         {
           min,
           max,
@@ -685,6 +750,8 @@ export class Statistics {
           frequency: 1.0,
         },
       ];
+      metricCache.set(bins, histogram);
+      return histogram;
     }
 
     const binWidth = range / bins;
@@ -718,6 +785,8 @@ export class Statistics {
       bin.frequency = bin.count / totalSamples;
     }
 
+    // Cache the result
+    metricCache.set(bins, histogram);
     return histogram;
   }
 }

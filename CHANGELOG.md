@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-02-09
+
+**Performance Optimization Release** - Focused on performance improvements for resource queuing and statistics calculations. Released separately from v0.1.3 to maintain clear upgrade paths and ensure full backward compatibility with existing codebases.
+
+### Changed
+
+- **Optimized Resource queue insertion**: Implemented binary search for priority queue insertion
+  - Search complexity reduced from O(n) to O(log n)
+  - Significantly faster for resources with large queues
+  - Maintains correct priority ordering and FIFO behavior within same priority
+  - Added 3 comprehensive tests including 100-request stress test
+- **Optimized Statistics query methods**: Implemented caching for expensive statistics calculations
+  - `getPercentile()` now caches sorted array: First call O(n log n), subsequent calls O(1)
+  - `getMin()` / `getMax()` now maintain cached values incrementally: O(1) instead of O(n)
+  - `getHistogram()` now caches results by bin count: Dramatically faster for repeated calls
+  - Cache automatically invalidated when new samples are recorded via `recordSample()`
+  - Min/max values updated incrementally as samples arrive (O(1) per sample)
+  - Percentile calculations can reuse cached sorted array across different percentiles
+  - Significant performance improvement for simulations with frequent statistics queries
+  - Added 19 comprehensive tests for caching behavior and performance
+
+### Migration Notes
+
+No breaking changes - all optimizations are internal implementations. Existing code will benefit from performance improvements without any modifications required.
+
 ## [0.1.3] - 2026-02-09
 
 ### Added

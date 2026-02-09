@@ -204,7 +204,8 @@ export class Resource {
   }
 
   /**
-   * Insert request into priority queue
+   * Insert request into priority queue using binary search.
+   * O(log n) search + O(n) splice, but faster for large queues.
    * @private
    */
   private insertIntoQueue(
@@ -219,30 +220,36 @@ export class Resource {
       process,
     };
 
-    // Find insertion position to maintain priority order
+    // Binary search to find insertion position
     // Lower priority number = higher priority (served first)
     // Same priority maintains FIFO order (by requestTime)
-    let insertIndex = 0;
-    for (let i = 0; i < this.queue.length; i++) {
-      const existingRequest = this.queue[i]!;
+    let left = 0;
+    let right = this.queue.length;
 
-      // If existing request has lower priority (higher number), insert before it
-      if (existingRequest.priority > priority) {
-        break;
+    while (left < right) {
+      const mid = Math.floor((left + right) / 2);
+      const existingRequest = this.queue[mid]!;
+
+      // Compare priorities first
+      if (existingRequest.priority < priority) {
+        // Existing request has higher priority, search right half
+        left = mid + 1;
+      } else if (existingRequest.priority > priority) {
+        // Existing request has lower priority, search left half
+        right = mid;
+      } else {
+        // Same priority, compare request times for FIFO order
+        if (existingRequest.requestTime <= newRequest.requestTime) {
+          // Existing request came first or same time, search right half
+          left = mid + 1;
+        } else {
+          // New request came first, search left half
+          right = mid;
+        }
       }
-
-      // If same priority, maintain FIFO order by request time
-      if (
-        existingRequest.priority === priority &&
-        existingRequest.requestTime > newRequest.requestTime
-      ) {
-        break;
-      }
-
-      insertIndex = i + 1;
     }
 
-    this.queue.splice(insertIndex, 0, newRequest);
+    this.queue.splice(left, 0, newRequest);
   }
 
   /**
