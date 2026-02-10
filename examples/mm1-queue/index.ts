@@ -30,7 +30,7 @@ const RANDOM_SEED = 42; // For reproducibility
 // Theoretical results (M/M/1 formulas)
 const RHO = ARRIVAL_RATE / SERVICE_RATE; // Utilization
 const THEORETICAL_WAIT = RHO / (SERVICE_RATE - ARRIVAL_RATE); // E[W]
-const THEORETICAL_QUEUE = RHO * RHO / (1 - RHO); // E[Q]
+const THEORETICAL_QUEUE = (RHO * RHO) / (1 - RHO); // E[Q]
 const THEORETICAL_SYSTEM_TIME = 1 / (SERVICE_RATE - ARRIVAL_RATE); // E[T]
 
 /**
@@ -159,7 +159,8 @@ function runSimulation() {
   console.log('='.repeat(60));
 
   const utilizationError = Math.abs(serverStats.utilizationRate - RHO) / RHO;
-  const waitTimeError = Math.abs(avgWaitTime - THEORETICAL_WAIT) / THEORETICAL_WAIT;
+  const waitTimeError =
+    Math.abs(avgWaitTime - THEORETICAL_WAIT) / THEORETICAL_WAIT;
   const queueLengthError =
     Math.abs(avgQueueLength - THEORETICAL_QUEUE) / THEORETICAL_QUEUE;
 
@@ -167,7 +168,7 @@ function runSimulation() {
   console.log(`Wait time error:     ${(waitTimeError * 100).toFixed(2)}%`);
   console.log(`Queue length error:  ${(queueLengthError * 100).toFixed(2)}%`);
 
-  const threshold = 0.10; // 10% error threshold
+  const threshold = 0.1; // 10% error threshold
   if (
     utilizationError < threshold &&
     waitTimeError < threshold &&

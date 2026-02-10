@@ -291,7 +291,10 @@ describe('Preemption', () => {
     });
 
     it('should have zero preemptions for non-preemptive resource', () => {
-      const server = new Resource(sim, 1, { name: 'Server', preemptive: false });
+      const server = new Resource(sim, 1, {
+        name: 'Server',
+        preemptive: false,
+      });
 
       function* customer(priority: number) {
         yield server.request(priority);
@@ -529,7 +532,9 @@ describe('Preemption', () => {
       sim.run();
 
       // One routine gets postponed, emergency takes priority
-      const postponedCount = results.filter((r) => r.includes('postponed')).length;
+      const postponedCount = results.filter((r) =>
+        r.includes('postponed')
+      ).length;
       expect(postponedCount).toBe(1);
       expect(results).toContain('emergency-started');
       expect(results).toContain('emergency-finished');

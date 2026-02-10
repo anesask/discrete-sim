@@ -134,11 +134,7 @@ export class Simulation {
    * @param priority - Priority for breaking ties (default: 0, lower = higher priority)
    * @returns The unique ID of the scheduled event
    */
-  schedule(
-    delay: number,
-    callback: () => void,
-    priority: number = 0
-  ): string {
+  schedule(delay: number, callback: () => void, priority: number = 0): string {
     validateNonNegative(
       delay,
       'delay',

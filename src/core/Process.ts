@@ -89,7 +89,10 @@ export class Condition {
     );
 
     // Validate maxIterations
-    if (!Number.isFinite(this.maxIterations) && this.maxIterations !== Infinity) {
+    if (
+      !Number.isFinite(this.maxIterations) &&
+      this.maxIterations !== Infinity
+    ) {
       throw new ValidationError(
         `maxIterations must be a finite number or Infinity (got ${this.maxIterations})`,
         { maxIterations: this.maxIterations }
@@ -250,11 +253,7 @@ export class Process {
    * ```
    */
   start(): void {
-    validateProcessState(
-      this.state,
-      ['pending'],
-      'start'
-    );
+    validateProcessState(this.state, ['pending'], 'start');
 
     this.state = 'running';
     // Execute immediately (synchronously) until first yield
@@ -285,11 +284,7 @@ export class Process {
    * ```
    */
   interrupt(reason?: Error): void {
-    validateProcessState(
-      this.state,
-      ['running'],
-      'interrupt'
-    );
+    validateProcessState(this.state, ['running'], 'interrupt');
 
     this.state = 'interrupted';
     this.interruptReason = reason ?? new Error('Process interrupted');

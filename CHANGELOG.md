@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **React Fast Refresh Compatibility Utilities**: New utilities to help developers avoid common React integration issues
+  - `analyzeExportsForReact()`: Analyzes module exports for potential Fast Refresh compatibility issues
+  - `warnReactCompatibilityIssues()`: Logs warnings in development mode for problematic export patterns
+  - `withReactCompatCheck()`: HOF wrapper to automatically check exports for compatibility
+  - `ExportAnalysis` type: Interface for detailed export analysis results
+  - Comprehensive React integration guide at `examples/react-integration/REACT_INTEGRATION.md`
+  - Example React context implementation at `examples/react-integration/SimulationContext.tsx`
+  - Detects and warns about:
+    - Mixed default and named exports with hooks
+    - Incomplete hook names (e.g., "useSim" instead of "useSimulation")
+    - Mixing React components/hooks with non-React exports
+    - Anonymous function exports
+- **Developer Experience Improvements**:
+  - Development-only warnings (no production overhead)
+  - Clear, actionable error messages with links to documentation
+  - Best practices guide for React integration
+- **Test Suite Hygiene**: Standardized test file naming conventions and improved test organization
+  - All test files now use consistent kebab-case naming (e.g., `event-queue.test.ts`)
+  - Added comprehensive performance benchmarks in `tests/benchmarks/` for quick performance validation
+  - Added scalability tests in `tests/performance/` to verify O(n) and O(log n) complexity guarantees
+  - Fixed all linting errors in test files for better maintainability
+  - Test categories clearly separated: unit, integration, benchmarks, performance, and validation
+
+### Documentation
+
+- New `REACT_INTEGRATION.md` guide covering:
+  - Fast Refresh compatibility best practices
+  - Common issues and solutions
+  - Proper export patterns for React components and hooks
+  - Example project structure
+  - Vite configuration tips
+
 ## [0.1.4] - 2026-02-09
 
 **Performance Optimization Release** - Focused on performance improvements for resource queuing and statistics calculations. Released separately from v0.1.3 to maintain clear upgrade paths and ensure full backward compatibility with existing codebases.

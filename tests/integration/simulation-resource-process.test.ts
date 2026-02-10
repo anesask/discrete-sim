@@ -159,22 +159,14 @@ describe('Simulation + Resource + Process Integration', () => {
     it('should simulate producer-consumer with buffer', () => {
       const buffer = new Resource(sim, 3, { name: 'Buffer' });
       let produced = 0;
-      let consumed = 0;
-
-      function* producer() {
-        for (let i = 0; i < 5; i++) {
-          yield* timeout(2); // Production time
-          yield buffer.request(); // Put item in buffer
-          produced++;
-        }
-      }
+      let consumedCount = 0;
 
       function* consumer() {
         for (let i = 0; i < 5; i++) {
           yield buffer.request(); // Wait for item
           yield* timeout(3); // Consumption time
           buffer.release();
-          consumed++;
+          consumedCount++;
         }
       }
 
@@ -197,6 +189,7 @@ describe('Simulation + Resource + Process Integration', () => {
       sim.run(50);
 
       expect(produced).toBe(5);
+      expect(consumedCount).toBeGreaterThan(0);
     });
   });
 

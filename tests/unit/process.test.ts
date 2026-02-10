@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Simulation } from '../../src/core/Simulation';
-import { Process, timeout, waitFor, Timeout, ConditionTimeoutError } from '../../src/core/Process';
+import {
+  Process,
+  timeout,
+  waitFor,
+  Timeout,
+  ConditionTimeoutError,
+} from '../../src/core/Process';
 import { Resource } from '../../src/resources/Resource';
 
 describe('Process', () => {
@@ -341,10 +347,13 @@ describe('Process', () => {
       const checkTimes: number[] = [];
 
       function* processGen() {
-        yield* waitFor(() => {
-          checkTimes.push(sim.now);
-          return counter >= 5;
-        }, { interval: 5 });
+        yield* waitFor(
+          () => {
+            checkTimes.push(sim.now);
+            return counter >= 5;
+          },
+          { interval: 5 }
+        );
       }
 
       const process = new Process(sim, processGen);
@@ -400,10 +409,13 @@ describe('Process', () => {
 
       function* processGen() {
         try {
-          yield* waitFor(() => {
-            checkTimes.push(sim.now);
-            return counter >= 100; // Never true
-          }, { interval: 10, maxIterations: 3 });
+          yield* waitFor(
+            () => {
+              checkTimes.push(sim.now);
+              return counter >= 100; // Never true
+            },
+            { interval: 10, maxIterations: 3 }
+          );
         } catch (error) {
           if (error instanceof ConditionTimeoutError) {
             errorCaught = true;
@@ -494,10 +506,13 @@ describe('Process', () => {
       const checkTimes: number[] = [];
 
       function* processGen() {
-        yield* waitFor(() => {
-          checkTimes.push(sim.now);
-          return sim.now >= 3;
-        }, { interval: 1, maxIterations: 3 });
+        yield* waitFor(
+          () => {
+            checkTimes.push(sim.now);
+            return sim.now >= 3;
+          },
+          { interval: 1, maxIterations: 3 }
+        );
       }
 
       const process = new Process(sim, processGen);
@@ -514,11 +529,14 @@ describe('Process', () => {
       const checkTimes: number[] = [];
 
       function* processGen() {
-        yield* waitFor(() => {
-          checkTimes.push(sim.now);
-          counter++;
-          return counter >= 3;
-        }, { interval: 0 });
+        yield* waitFor(
+          () => {
+            checkTimes.push(sim.now);
+            counter++;
+            return counter >= 3;
+          },
+          { interval: 0 }
+        );
       }
 
       const process = new Process(sim, processGen);

@@ -572,7 +572,12 @@ describe('Simulation', () => {
 
       sim.reset();
 
-      expect(events).toEqual(['p1-start', 'p2-start', 'p1-interrupted', 'p2-interrupted']);
+      expect(events).toEqual([
+        'p1-start',
+        'p2-start',
+        'p1-interrupted',
+        'p2-interrupted',
+      ]);
     });
 
     it('should clear active processes Set after reset', () => {
@@ -687,7 +692,12 @@ describe('Simulation', () => {
 
       sim.reset();
 
-      expect(events).toEqual(['start', 'acquired', 'interrupted', 'cleanup-release']);
+      expect(events).toEqual([
+        'start',
+        'acquired',
+        'interrupted',
+        'cleanup-release',
+      ]);
       expect(resource.available).toBe(1); // Resource released
     });
   });
@@ -955,8 +965,8 @@ describe('Simulation', () => {
 
       // Schedule with different priorities at same time
       sim.schedule(10, () => {}, 10); // Low priority
-      sim.schedule(10, () => {}, 0);  // High priority
-      sim.schedule(10, () => {}, 5);  // Medium priority
+      sim.schedule(10, () => {}, 0); // High priority
+      sim.schedule(10, () => {}, 5); // Medium priority
 
       sim.run();
 

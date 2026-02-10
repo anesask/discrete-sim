@@ -203,13 +203,23 @@ function runSimulation() {
   console.log(`Emergency department beds: ${NUM_BEDS}`);
   console.log();
   console.log('Patient Arrival Rates:');
-  console.log(`  Critical (priority ${PRIORITY_CRITICAL}): ${CRITICAL_ARRIVAL_RATE} patients/hour`);
-  console.log(`  Urgent   (priority ${PRIORITY_URGENT}): ${URGENT_ARRIVAL_RATE} patients/hour`);
-  console.log(`  Standard (priority ${PRIORITY_STANDARD}): ${STANDARD_ARRIVAL_RATE} patients/hour`);
-  console.log(`  Total: ${CRITICAL_ARRIVAL_RATE + URGENT_ARRIVAL_RATE + STANDARD_ARRIVAL_RATE} patients/hour`);
+  console.log(
+    `  Critical (priority ${PRIORITY_CRITICAL}): ${CRITICAL_ARRIVAL_RATE} patients/hour`
+  );
+  console.log(
+    `  Urgent   (priority ${PRIORITY_URGENT}): ${URGENT_ARRIVAL_RATE} patients/hour`
+  );
+  console.log(
+    `  Standard (priority ${PRIORITY_STANDARD}): ${STANDARD_ARRIVAL_RATE} patients/hour`
+  );
+  console.log(
+    `  Total: ${CRITICAL_ARRIVAL_RATE + URGENT_ARRIVAL_RATE + STANDARD_ARRIVAL_RATE} patients/hour`
+  );
   console.log();
   console.log('Preemption Protocol:');
-  console.log('  - PREEMPTIVE: Critical patients can interrupt lower-priority treatment');
+  console.log(
+    '  - PREEMPTIVE: Critical patients can interrupt lower-priority treatment'
+  );
   console.log('  - When all beds full, lowest-priority patient is preempted');
   console.log('  - Preempted patients return to queue and retry');
   console.log(`  Random seed: ${RANDOM_SEED}`);
@@ -279,7 +289,8 @@ function runSimulation() {
   const criticalCompleted = stats.getCount('critical-completed');
   const urgentCompleted = stats.getCount('urgent-completed');
   const standardCompleted = stats.getCount('standard-completed');
-  const totalCompleted = criticalCompleted + urgentCompleted + standardCompleted;
+  const totalCompleted =
+    criticalCompleted + urgentCompleted + standardCompleted;
 
   const criticalPreempted = stats.getCount('critical-preempted');
   const urgentPreempted = stats.getCount('urgent-preempted');
@@ -294,15 +305,27 @@ function runSimulation() {
 
   console.log('\nPatient Volume:');
   console.log(`  Total arrived: ${totalArrived} patients`);
-  console.log(`  Critical: ${criticalArrived} (${((criticalArrived / totalArrived) * 100).toFixed(1)}%)`);
-  console.log(`  Urgent:   ${urgentArrived} (${((urgentArrived / totalArrived) * 100).toFixed(1)}%)`);
-  console.log(`  Standard: ${standardArrived} (${((standardArrived / totalArrived) * 100).toFixed(1)}%)`);
+  console.log(
+    `  Critical: ${criticalArrived} (${((criticalArrived / totalArrived) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Urgent:   ${urgentArrived} (${((urgentArrived / totalArrived) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Standard: ${standardArrived} (${((standardArrived / totalArrived) * 100).toFixed(1)}%)`
+  );
 
   console.log('\nTreatment Completion:');
   console.log(`  Total completed: ${totalCompleted} patients`);
-  console.log(`  Critical: ${criticalCompleted}/${criticalArrived} (${((criticalCompleted / criticalArrived) * 100).toFixed(1)}%)`);
-  console.log(`  Urgent:   ${urgentCompleted}/${urgentArrived} (${((urgentCompleted / urgentArrived) * 100).toFixed(1)}%)`);
-  console.log(`  Standard: ${standardCompleted}/${standardArrived} (${((standardCompleted / standardArrived) * 100).toFixed(1)}%)`);
+  console.log(
+    `  Critical: ${criticalCompleted}/${criticalArrived} (${((criticalCompleted / criticalArrived) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Urgent:   ${urgentCompleted}/${urgentArrived} (${((urgentCompleted / urgentArrived) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Standard: ${standardCompleted}/${standardArrived} (${((standardCompleted / standardArrived) * 100).toFixed(1)}%)`
+  );
 
   console.log('\nWait Times (Initial Wait):');
   const criticalWait = stats.getAverage('wait-critical-minutes');
@@ -325,7 +348,9 @@ function runSimulation() {
   console.log('='.repeat(75));
 
   console.log('\nPreemption Events:');
-  console.log(`  Total preemptions (resource view): ${bedStats.totalPreemptions}`);
+  console.log(
+    `  Total preemptions (resource view): ${bedStats.totalPreemptions}`
+  );
   console.log(`  Critical patients preempted: ${criticalPreempted}`);
   console.log(`  Urgent patients preempted:   ${urgentPreempted}`);
   console.log(`  Standard patients preempted: ${standardPreempted}`);
@@ -360,8 +385,12 @@ function runSimulation() {
   }
 
   console.log('\nResource Utilization:');
-  console.log(`  Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`);
-  console.log(`  Average queue length: ${bedStats.averageQueueLength.toFixed(2)} patients`);
+  console.log(
+    `  Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`
+  );
+  console.log(
+    `  Average queue length: ${bedStats.averageQueueLength.toFixed(2)} patients`
+  );
   console.log(`  Total requests: ${bedStats.totalRequests}`);
 
   // Performance assessment
@@ -374,24 +403,41 @@ function runSimulation() {
     console.log('  [OK] ALL critical patients treated');
   } else {
     const remaining = criticalArrived - criticalCompleted;
-    console.log(`  [WARNING] ${remaining} critical patient(s) still in system at end`);
+    console.log(
+      `  [WARNING] ${remaining} critical patient(s) still in system at end`
+    );
   }
 
   if (criticalWait < 5) {
-    console.log(`  [OK] Excellent response time (${criticalWait.toFixed(1)} min < 5 min target)`);
+    console.log(
+      `  [OK] Excellent response time (${criticalWait.toFixed(1)} min < 5 min target)`
+    );
   } else if (criticalWait < 10) {
-    console.log(`  [WARNING] Acceptable response time (${criticalWait.toFixed(1)} min)`);
+    console.log(
+      `  [WARNING] Acceptable response time (${criticalWait.toFixed(1)} min)`
+    );
   } else {
-    console.log(`  [WARNING] SLOW response time (${criticalWait.toFixed(1)} min > 10 min)`);
+    console.log(
+      `  [WARNING] SLOW response time (${criticalWait.toFixed(1)} min > 10 min)`
+    );
   }
 
   console.log('\nPreemption System Effectiveness:');
   if (bedStats.totalPreemptions > 0) {
-    console.log(`  [OK] Preemption system active: ${bedStats.totalPreemptions} preemptions occurred`);
-    if (standardPreempted > urgentPreempted && urgentPreempted > criticalPreempted) {
-      console.log('  [OK] Correct triage: Most preemptions affected lower-priority patients');
+    console.log(
+      `  [OK] Preemption system active: ${bedStats.totalPreemptions} preemptions occurred`
+    );
+    if (
+      standardPreempted > urgentPreempted &&
+      urgentPreempted > criticalPreempted
+    ) {
+      console.log(
+        '  [OK] Correct triage: Most preemptions affected lower-priority patients'
+      );
     }
-    console.log('  -> Critical patients successfully prioritized over non-critical');
+    console.log(
+      '  -> Critical patients successfully prioritized over non-critical'
+    );
   } else {
     console.log('  [INFO] No preemptions occurred');
     console.log('  -> System not busy enough to require preemption');
@@ -400,16 +446,22 @@ function runSimulation() {
   console.log('\nCapacity Assessment:');
   if (bedStats.utilizationRate > 0.85) {
     console.log('  [WARNING] OVERCAPACITY:');
-    console.log(`     - Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`);
+    console.log(
+      `     - Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`
+    );
     console.log(`     -> Add ${Math.ceil(NUM_BEDS * 0.3)} more bed(s)`);
     console.log('     -> High preemption rate indicates capacity strain');
   } else if (bedStats.utilizationRate > 0.7) {
     console.log('  [WARNING] Near capacity during peaks');
-    console.log(`     - Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`);
+    console.log(
+      `     - Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`
+    );
     console.log('     -> Current capacity adequate but monitor closely');
   } else {
     console.log('  [OK] Adequate capacity');
-    console.log(`     - Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`);
+    console.log(
+      `     - Bed utilization: ${(bedStats.utilizationRate * 100).toFixed(1)}%`
+    );
   }
 
   console.log('\n' + '='.repeat(75));
@@ -417,8 +469,16 @@ function runSimulation() {
   return {
     simulation: result,
     patients: {
-      arrived: { critical: criticalArrived, urgent: urgentArrived, standard: standardArrived },
-      completed: { critical: criticalCompleted, urgent: urgentCompleted, standard: standardCompleted },
+      arrived: {
+        critical: criticalArrived,
+        urgent: urgentArrived,
+        standard: standardArrived,
+      },
+      completed: {
+        critical: criticalCompleted,
+        urgent: urgentCompleted,
+        standard: standardCompleted,
+      },
     },
     preemptions: {
       total: bedStats.totalPreemptions,
@@ -429,7 +489,11 @@ function runSimulation() {
       },
     },
     performance: {
-      waitTimes: { critical: criticalWait, urgent: urgentWait, standard: standardWait },
+      waitTimes: {
+        critical: criticalWait,
+        urgent: urgentWait,
+        standard: standardWait,
+      },
       bedUtilization: bedStats.utilizationRate,
     },
   };

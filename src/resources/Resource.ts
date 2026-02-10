@@ -309,7 +309,9 @@ export class Resource {
     if (this.options.preemptive) {
       if (process) {
         // If process provided, remove it specifically
-        const userIndex = this.activeUsers.findIndex((u) => u.process === process);
+        const userIndex = this.activeUsers.findIndex(
+          (u) => u.process === process
+        );
         if (userIndex >= 0) {
           this.activeUsers.splice(userIndex, 1);
         }

@@ -59,11 +59,15 @@ describe('Random', () => {
     });
 
     it('should reject Infinity seed', () => {
-      expect(() => new Random(Infinity)).toThrow('Seed must be a finite number');
+      expect(() => new Random(Infinity)).toThrow(
+        'Seed must be a finite number'
+      );
     });
 
     it('should reject negative Infinity seed', () => {
-      expect(() => new Random(-Infinity)).toThrow('Seed must be a finite number');
+      expect(() => new Random(-Infinity)).toThrow(
+        'Seed must be a finite number'
+      );
     });
 
     it('should reject non-integer seed', () => {
@@ -76,7 +80,9 @@ describe('Random', () => {
 
     it('should reject seed exceeding maximum', () => {
       const maxSafe = 2 ** 32 - 1;
-      expect(() => new Random(maxSafe + 1)).toThrow('Seed exceeds maximum safe value');
+      expect(() => new Random(maxSafe + 1)).toThrow(
+        'Seed exceeds maximum safe value'
+      );
     });
 
     it('should accept seed at maximum boundary', () => {
@@ -209,7 +215,7 @@ describe('Random', () => {
       const lessThanMean = values.filter((v) => v < mean).length;
       const proportion = lessThanMean / n;
 
-      expect(proportion).toBeGreaterThan(0.60);
+      expect(proportion).toBeGreaterThan(0.6);
       expect(proportion).toBeLessThan(0.66);
     });
   });
@@ -220,7 +226,9 @@ describe('Random', () => {
       const mean = 100;
       const stdDev = 15;
 
-      const values = Array.from({ length: 100 }, () => rng.normal(mean, stdDev));
+      const values = Array.from({ length: 100 }, () =>
+        rng.normal(mean, stdDev)
+      );
 
       // At least some values should be both above and below the mean
       const above = values.filter((v) => v > mean).length;
@@ -383,7 +391,9 @@ describe('Random', () => {
 
     it('should accept custom mode', () => {
       const rng = new Random(12345);
-      const values = Array.from({ length: 10000 }, () => rng.triangular(0, 10, 3));
+      const values = Array.from({ length: 10000 }, () =>
+        rng.triangular(0, 10, 3)
+      );
       const mean = values.reduce((a, b) => a + b, 0) / values.length;
 
       // Triangular(0, 10, 3) should have mean around (0+10+3)/3 ≈ 4.33
@@ -399,8 +409,12 @@ describe('Random', () => {
 
     it('should throw error when mode is out of range', () => {
       const rng = new Random();
-      expect(() => rng.triangular(5, 10, 3)).toThrow('mode must be between min and max');
-      expect(() => rng.triangular(5, 10, 15)).toThrow('mode must be between min and max');
+      expect(() => rng.triangular(5, 10, 3)).toThrow(
+        'mode must be between min and max'
+      );
+      expect(() => rng.triangular(5, 10, 15)).toThrow(
+        'mode must be between min and max'
+      );
     });
   });
 
@@ -431,11 +445,12 @@ describe('Random', () => {
       const lambda = 5;
       const values = Array.from({ length: 10000 }, () => rng.poisson(lambda));
       const mean = values.reduce((a, b) => a + b, 0) / values.length;
-      const variance = values.reduce((sum, x) => sum + (x - mean) ** 2, 0) / values.length;
+      const variance =
+        values.reduce((sum, x) => sum + (x - mean) ** 2, 0) / values.length;
 
       // Variance should be close to lambda (within 10%)
-      expect(variance).toBeGreaterThan(lambda * 0.90);
-      expect(variance).toBeLessThan(lambda * 1.10);
+      expect(variance).toBeGreaterThan(lambda * 0.9);
+      expect(variance).toBeLessThan(lambda * 1.1);
     });
 
     it('should throw error for non-positive lambda', () => {
@@ -449,7 +464,7 @@ describe('Random', () => {
       const values = Array.from({ length: 1000 }, () => rng.poisson(0.5));
 
       // Most values should be 0 or 1 for small lambda
-      const allSmall = values.every(v => v >= 0 && v < 5);
+      const allSmall = values.every((v) => v >= 0 && v < 5);
       expect(allSmall).toBe(true);
     });
   });

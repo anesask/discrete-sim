@@ -57,7 +57,8 @@ function* customerProcess(
   sim: Simulation
 ) {
   const arrivalTime = sim.now;
-  const priority = customerType === 'express' ? PRIORITY_EXPRESS : PRIORITY_REGULAR;
+  const priority =
+    customerType === 'express' ? PRIORITY_EXPRESS : PRIORITY_REGULAR;
 
   // Request teller with appropriate priority
   yield tellers.request(priority);
@@ -151,23 +152,31 @@ function runSimulation() {
   console.log('Bank Express Lane Simulation');
   console.log('='.repeat(70));
   console.log(`Simulation duration: ${SIMULATION_HOURS} hours`);
-  console.log(`Express arrival rate: ${EXPRESS_ARRIVAL_RATE} customers/hour (priority=${PRIORITY_EXPRESS})`);
-  console.log(`Regular arrival rate: ${REGULAR_ARRIVAL_RATE} customers/hour (priority=${PRIORITY_REGULAR})`);
+  console.log(
+    `Express arrival rate: ${EXPRESS_ARRIVAL_RATE} customers/hour (priority=${PRIORITY_EXPRESS})`
+  );
+  console.log(
+    `Regular arrival rate: ${REGULAR_ARRIVAL_RATE} customers/hour (priority=${PRIORITY_REGULAR})`
+  );
   console.log(`Number of tellers: ${NUM_TELLERS}`);
   console.log(`Random seed: ${RANDOM_SEED}`);
   console.log();
   console.log('Priority Queue Behavior:');
   console.log('  - Express customers have priority 0 (higher priority)');
   console.log('  - Regular customers have priority 10 (lower priority)');
-  console.log('  - When both types are queued, express customers are served first');
-  console.log('  - NON-PREEMPTIVE: In-service customers finish before next is served');
+  console.log(
+    '  - When both types are queued, express customers are served first'
+  );
+  console.log(
+    '  - NON-PREEMPTIVE: In-service customers finish before next is served'
+  );
   console.log();
 
   // Create simulation components
   const sim = new Simulation();
   const tellers = new Resource(sim, NUM_TELLERS, {
     name: 'Bank Tellers',
-    preemptive: false // Non-preemptive: customers finish service once started
+    preemptive: false, // Non-preemptive: customers finish service once started
   });
   const stats = new Statistics(sim);
   const rng = new Random(RANDOM_SEED);
@@ -204,9 +213,15 @@ function runSimulation() {
 
   console.log('\nService Summary:');
   console.log(`  Total customers served: ${totalServed}`);
-  console.log(`  Express customers: ${expressServed} (${((expressServed / totalServed) * 100).toFixed(1)}%)`);
-  console.log(`  Regular customers: ${regularServed} (${((regularServed / totalServed) * 100).toFixed(1)}%)`);
-  console.log(`  Throughput: ${(totalServed / SIMULATION_HOURS).toFixed(1)} customers/hour`);
+  console.log(
+    `  Express customers: ${expressServed} (${((expressServed / totalServed) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Regular customers: ${regularServed} (${((regularServed / totalServed) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Throughput: ${(totalServed / SIMULATION_HOURS).toFixed(1)} customers/hour`
+  );
 
   console.log('\nWait Time Comparison:');
   const expressWaitMin = stats.getAverage('wait-express-minutes');
@@ -216,7 +231,9 @@ function runSimulation() {
 
   if (regularWaitMin > expressWaitMin) {
     const ratio = regularWaitMin / expressWaitMin;
-    console.log(`  -> Regular customers wait ${ratio.toFixed(1)}x longer than express`);
+    console.log(
+      `  -> Regular customers wait ${ratio.toFixed(1)}x longer than express`
+    );
   }
 
   console.log('\nTotal Time in Bank:');
@@ -226,8 +243,12 @@ function runSimulation() {
   console.log(`  Regular average: ${regularTotalMin.toFixed(2)} minutes`);
 
   console.log('\nResource Utilization:');
-  console.log(`  Teller utilization: ${(tellerStats.utilizationRate * 100).toFixed(1)}%`);
-  console.log(`  Average queue length: ${tellerStats.averageQueueLength.toFixed(2)} customers`);
+  console.log(
+    `  Teller utilization: ${(tellerStats.utilizationRate * 100).toFixed(1)}%`
+  );
+  console.log(
+    `  Average queue length: ${tellerStats.averageQueueLength.toFixed(2)} customers`
+  );
   console.log(`  Total requests: ${tellerStats.totalRequests}`);
   console.log(`  Total releases: ${tellerStats.totalReleases}`);
 
@@ -252,30 +273,50 @@ function runSimulation() {
   console.log('\nQueue Pressure:');
   const avgQueueLength = tellerStats.averageQueueLength;
   if (avgQueueLength > 3) {
-    console.log(`  [WARNING] High queue pressure (avg ${avgQueueLength.toFixed(1)} customers)`);
-    console.log('    -> Priority queuing provides significant benefit to express customers');
-    console.log('    -> Consider adding another teller to reduce overall wait times');
+    console.log(
+      `  [WARNING] High queue pressure (avg ${avgQueueLength.toFixed(1)} customers)`
+    );
+    console.log(
+      '    -> Priority queuing provides significant benefit to express customers'
+    );
+    console.log(
+      '    -> Consider adding another teller to reduce overall wait times'
+    );
   } else if (avgQueueLength > 1) {
-    console.log(`  [INFO] Moderate queue pressure (avg ${avgQueueLength.toFixed(1)} customers)`);
+    console.log(
+      `  [INFO] Moderate queue pressure (avg ${avgQueueLength.toFixed(1)} customers)`
+    );
     console.log('    -> Priority queuing provides benefit during busy periods');
   } else {
-    console.log(`  [OK] Low queue pressure (avg ${avgQueueLength.toFixed(1)} customers)`);
-    console.log('    -> Most customers served immediately or with minimal wait');
+    console.log(
+      `  [OK] Low queue pressure (avg ${avgQueueLength.toFixed(1)} customers)`
+    );
+    console.log(
+      '    -> Most customers served immediately or with minimal wait'
+    );
   }
 
   // Staffing recommendations
   console.log('\nStaffing Recommendations:');
   if (tellerStats.utilizationRate > 0.85) {
     console.log('  [WARNING] UNDERSTAFFED:');
-    console.log(`     - Teller utilization high (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`);
+    console.log(
+      `     - Teller utilization high (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`
+    );
     console.log(`     -> Add ${Math.ceil(NUM_TELLERS * 0.5)} more teller(s)`);
   } else if (tellerStats.utilizationRate < 0.5) {
     console.log('  [INFO] OVERSTAFFED:');
-    console.log(`     - Teller utilization low (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`);
-    console.log(`     -> Consider reducing to ${Math.max(1, NUM_TELLERS - 1)} teller(s)`);
+    console.log(
+      `     - Teller utilization low (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`
+    );
+    console.log(
+      `     -> Consider reducing to ${Math.max(1, NUM_TELLERS - 1)} teller(s)`
+    );
   } else {
     console.log('  [OK] WELL-STAFFED: Current staffing appears optimal');
-    console.log(`     - Teller utilization: ${(tellerStats.utilizationRate * 100).toFixed(1)}%`);
+    console.log(
+      `     - Teller utilization: ${(tellerStats.utilizationRate * 100).toFixed(1)}%`
+    );
   }
 
   console.log('\n' + '='.repeat(70));

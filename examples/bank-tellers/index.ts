@@ -170,9 +170,7 @@ function runSimulation() {
   stats.enableSampleTracking('total-time-minutes');
 
   // Start arrival process
-  sim.process(() =>
-    arrivalProcess(tellers, stats, rng, sim, SIMULATION_HOURS)
-  );
+  sim.process(() => arrivalProcess(tellers, stats, rng, sim, SIMULATION_HOURS));
 
   // Run simulation
   console.log('Running simulation...');
@@ -200,9 +198,15 @@ function runSimulation() {
 
   console.log('\nService Summary:');
   console.log(`  Total customers served: ${customersServed}`);
-  console.log(`  Quick transactions: ${quickTransactions} (${((quickTransactions / customersServed) * 100).toFixed(1)}%)`);
-  console.log(`  Complex transactions: ${complexTransactions} (${((complexTransactions / customersServed) * 100).toFixed(1)}%)`);
-  console.log(`  Throughput: ${(customersServed / SIMULATION_HOURS).toFixed(1)} customers/hour`);
+  console.log(
+    `  Quick transactions: ${quickTransactions} (${((quickTransactions / customersServed) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Complex transactions: ${complexTransactions} (${((complexTransactions / customersServed) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Throughput: ${(customersServed / SIMULATION_HOURS).toFixed(1)} customers/hour`
+  );
 
   console.log('\nWait Time Performance:');
   console.log(
@@ -230,8 +234,12 @@ function runSimulation() {
   console.log('\nSLA Compliance:');
   const slaComplianceRate = slaMet / (slaMet + slaMissed);
   console.log(`  Target: ${SLA_WAIT_TIME_MINUTES} minutes or less`);
-  console.log(`  Met SLA: ${slaMet} customers (${(slaComplianceRate * 100).toFixed(1)}%)`);
-  console.log(`  Missed SLA: ${slaMissed} customers (${((1 - slaComplianceRate) * 100).toFixed(1)}%)`);
+  console.log(
+    `  Met SLA: ${slaMet} customers (${(slaComplianceRate * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Missed SLA: ${slaMissed} customers (${((1 - slaComplianceRate) * 100).toFixed(1)}%)`
+  );
 
   if (slaMissed > 0) {
     const avgViolation = stats.getAverage('sla-violation');
@@ -274,9 +282,9 @@ function runSimulation() {
   console.log('\nSLA Compliance Grade:');
   if (slaComplianceRate >= 0.95) {
     console.log('  [*****] Excellent (>=95%)');
-  } else if (slaComplianceRate >= 0.90) {
+  } else if (slaComplianceRate >= 0.9) {
     console.log('  [****-] Good (90-95%)');
-  } else if (slaComplianceRate >= 0.80) {
+  } else if (slaComplianceRate >= 0.8) {
     console.log('  [***--] Fair (80-90%)');
   } else {
     console.log('  [**---] Poor (<80%)');
@@ -286,19 +294,32 @@ function runSimulation() {
   console.log('\nStaffing Recommendations:');
   const avgWaitMinutes = stats.getAverage('wait-time-minutes');
 
-  if (tellerStats.utilizationRate > 0.85 || avgWaitMinutes > SLA_WAIT_TIME_MINUTES) {
+  if (
+    tellerStats.utilizationRate > 0.85 ||
+    avgWaitMinutes > SLA_WAIT_TIME_MINUTES
+  ) {
     console.log('  [WARNING] UNDERSTAFFED:');
     if (tellerStats.utilizationRate > 0.85) {
-      console.log(`     - Teller utilization high (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`);
+      console.log(
+        `     - Teller utilization high (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`
+      );
     }
     if (avgWaitMinutes > SLA_WAIT_TIME_MINUTES) {
-      console.log(`     - Average wait exceeds SLA (${avgWaitMinutes.toFixed(1)} min > ${SLA_WAIT_TIME_MINUTES} min)`);
+      console.log(
+        `     - Average wait exceeds SLA (${avgWaitMinutes.toFixed(1)} min > ${SLA_WAIT_TIME_MINUTES} min)`
+      );
     }
-    console.log(`     - Consider adding ${Math.ceil((NUM_TELLERS * 0.3))} more teller(s)`);
+    console.log(
+      `     - Consider adding ${Math.ceil(NUM_TELLERS * 0.3)} more teller(s)`
+    );
   } else if (tellerStats.utilizationRate < 0.5) {
     console.log('  [INFO] OVERSTAFFED:');
-    console.log(`     - Teller utilization low (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`);
-    console.log(`     - Consider reducing staff by ${Math.floor(NUM_TELLERS * 0.25)} teller(s)`);
+    console.log(
+      `     - Teller utilization low (${(tellerStats.utilizationRate * 100).toFixed(1)}%)`
+    );
+    console.log(
+      `     - Consider reducing staff by ${Math.floor(NUM_TELLERS * 0.25)} teller(s)`
+    );
   } else {
     console.log('  [OK] WELL-STAFFED: Current staffing appears optimal');
   }
@@ -308,10 +329,14 @@ function runSimulation() {
   const complexRatio = complexTransactions / customersServed;
   if (complexRatio > 0.4) {
     console.log('  [INFO] High proportion of complex transactions (>40%)');
-    console.log('     Consider: Dedicated specialist window for complex services');
+    console.log(
+      '     Consider: Dedicated specialist window for complex services'
+    );
   } else if (complexRatio < 0.2) {
     console.log('  [INFO] Low proportion of complex transactions (<20%)');
-    console.log('     Consider: Promote self-service kiosks for quick transactions');
+    console.log(
+      '     Consider: Promote self-service kiosks for quick transactions'
+    );
   } else {
     console.log('  [OK] Balanced service mix');
   }

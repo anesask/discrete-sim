@@ -251,7 +251,9 @@ describe('Input Validation', () => {
         expect(error).toBeInstanceOf(ValidationError);
         const ve = error as ValidationError;
         expect(ve.message).toContain('Invalid yield value');
-        expect(ve.message).toContain('Expected one of: Timeout, ResourceRequest, Condition');
+        expect(ve.message).toContain(
+          'Expected one of: Timeout, ResourceRequest, Condition'
+        );
         expect(ve.message).toContain('Did you forget to use yield*');
       }
     });

@@ -31,7 +31,10 @@
  * ```
  */
 export class ValidationError extends Error {
-  constructor(message: string, public readonly context?: Record<string, unknown>) {
+  constructor(
+    message: string,
+    public readonly context?: Record<string, unknown>
+  ) {
     super(message);
     this.name = 'ValidationError';
     Object.setPrototypeOf(this, ValidationError.prototype);
@@ -205,11 +208,22 @@ export function validateInteger(
  * validateCapacity(5.5); // Throws: capacity must be a whole number
  * ```
  */
-export function validateCapacity(capacity: number, resourceName?: string): void {
+export function validateCapacity(
+  capacity: number,
+  resourceName?: string
+): void {
   const name = resourceName ? `Resource '${resourceName}'` : 'Resource';
 
-  validateFinite(capacity, 'capacity', `${name} capacity must be a valid number`);
-  validateInteger(capacity, 'capacity', `${name} capacity must be a whole number`);
+  validateFinite(
+    capacity,
+    'capacity',
+    `${name} capacity must be a valid number`
+  );
+  validateInteger(
+    capacity,
+    'capacity',
+    `${name} capacity must be a whole number`
+  );
   validateMinimum(
     capacity,
     1,
@@ -244,11 +258,7 @@ export function validateTime(
   validateFinite(time, paramName, 'Simulation time must be a valid number');
 
   if (allowZero) {
-    validateNonNegative(
-      time,
-      paramName,
-      'Simulation time cannot be negative'
-    );
+    validateNonNegative(time, paramName, 'Simulation time cannot be negative');
   } else {
     validatePositive(
       time,
@@ -408,7 +418,7 @@ export function validateYieldedValue(value: unknown): void {
   if (!typeName || !validTypes.includes(typeName)) {
     throw new ValidationError(
       `Invalid yield value in process generator. Expected one of: ${validTypes.join(', ')}. Got: ${typeName || typeof value}. ` +
-      `Did you forget to use yield* for timeout() or forget to call resource.request()?`,
+        `Did you forget to use yield* for timeout() or forget to call resource.request()?`,
       { receivedType: typeName || typeof value, validTypes }
     );
   }

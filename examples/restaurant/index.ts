@@ -86,10 +86,7 @@ function* customerGroupProcess(
   servers.release();
 
   // Eat meal
-  const mealTime = Math.max(
-    0.2,
-    rng.normal(MEAL_TIME_MEAN, MEAL_TIME_STDDEV)
-  );
+  const mealTime = Math.max(0.2, rng.normal(MEAL_TIME_MEAN, MEAL_TIME_STDDEV));
   yield* timeout(mealTime);
 
   // Request server for payment
@@ -126,7 +123,15 @@ function* arrivalProcess(
 
     // Create customer group process
     sim.process(() =>
-      customerGroupProcess(groupId++, groupSize, tables, servers, stats, rng, sim)
+      customerGroupProcess(
+        groupId++,
+        groupSize,
+        tables,
+        servers,
+        stats,
+        rng,
+        sim
+      )
     );
 
     // Wait for next arrival
@@ -195,10 +200,10 @@ function runSimulation() {
 
   console.log('\nCustomer Experience:');
   console.log(
-    `  Average wait time: ${(stats.getAverage('wait-time-minutes')).toFixed(1)} minutes`
+    `  Average wait time: ${stats.getAverage('wait-time-minutes').toFixed(1)} minutes`
   );
   console.log(
-    `  Average time in restaurant: ${(stats.getAverage('total-time-minutes')).toFixed(1)} minutes`
+    `  Average time in restaurant: ${stats.getAverage('total-time-minutes').toFixed(1)} minutes`
   );
 
   // Wait time by group size (only show if we have data)
@@ -251,7 +256,9 @@ function runSimulation() {
   } else if (avgWaitMinutes < 20) {
     console.log('  [****-] Good - Acceptable wait times');
   } else if (avgWaitMinutes < 30) {
-    console.log('  [***--] Fair - Longer wait times, some frustration expected');
+    console.log(
+      '  [***--] Fair - Longer wait times, some frustration expected'
+    );
   } else {
     console.log('  [**---] Poor - Long waits, customer dissatisfaction likely');
   }

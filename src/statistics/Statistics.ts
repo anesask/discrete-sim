@@ -75,7 +75,8 @@ export class Statistics {
   private readonly sortedSamplesCache: Map<string, number[]> = new Map(); // Cached sorted arrays
   private readonly minCache: Map<string, number> = new Map(); // Cached min values
   private readonly maxCache: Map<string, number> = new Map(); // Cached max values
-  private readonly histogramCache: Map<string, Map<number, HistogramBin[]>> = new Map(); // Cached histograms by bin count
+  private readonly histogramCache: Map<string, Map<number, HistogramBin[]>> =
+    new Map(); // Cached histograms by bin count
 
   // Warm-up period
   private warmupEndTime: number = 0;

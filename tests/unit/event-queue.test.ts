@@ -288,7 +288,6 @@ describe('EventQueue', () => {
       console.log(`  - Extract ${n} events: ${extractTime}ms`);
       console.log(`  - Total time: ${totalTime}ms`);
     });
-
   });
 
   describe('edge cases', () => {
@@ -303,8 +302,16 @@ describe('EventQueue', () => {
     });
 
     it('should handle events with very large time values', () => {
-      queue.push({ time: Number.MAX_SAFE_INTEGER, priority: 0, callback: () => {} });
-      queue.push({ time: Number.MAX_SAFE_INTEGER - 1, priority: 0, callback: () => {} });
+      queue.push({
+        time: Number.MAX_SAFE_INTEGER,
+        priority: 0,
+        callback: () => {},
+      });
+      queue.push({
+        time: Number.MAX_SAFE_INTEGER - 1,
+        priority: 0,
+        callback: () => {},
+      });
 
       expect(queue.pop()?.time).toBe(Number.MAX_SAFE_INTEGER - 1);
       expect(queue.pop()?.time).toBe(Number.MAX_SAFE_INTEGER);

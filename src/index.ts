@@ -28,10 +28,22 @@ export {
 } from './resources/Resource.js';
 
 // Statistics collection
-export { Statistics, TimePoint, HistogramBin } from './statistics/Statistics.js';
+export {
+  Statistics,
+  TimePoint,
+  HistogramBin,
+} from './statistics/Statistics.js';
 
 // Random number generation
 export { Random } from './random/Random.js';
 
 // Validation utilities
 export { ValidationError } from './utils/validation.js';
+
+// React compatibility utilities
+export {
+  analyzeExportsForReact,
+  warnReactCompatibilityIssues,
+  withReactCompatCheck,
+} from './utils/react-compat-checker.js';
+export type { ExportAnalysis } from './utils/react-compat-checker.js';

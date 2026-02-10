@@ -76,6 +76,5 @@ yarn-error.log
 .rts2_cache_es/
 .rts2_cache_umd/
 
-# CONTRIBUTING file (optional, you may want to include it)
-# Remove the comment below if you want to exclude it
-# CONTRIBUTING.md
+# CONTRIBUTING file
+CONTRIBUTING.md

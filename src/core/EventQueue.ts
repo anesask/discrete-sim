@@ -149,7 +149,10 @@ export class EventQueue {
     // the relationship between the removed element and the swapped element
     const parentIndex = Math.floor((index - 1) / 2);
 
-    if (index > 0 && this.compare(this.heap[index]!, this.heap[parentIndex]!) < 0) {
+    if (
+      index > 0 &&
+      this.compare(this.heap[index], this.heap[parentIndex]) < 0
+    ) {
       // Element is smaller than parent, bubble up
       this.bubbleUp(index);
     } else {
@@ -231,6 +234,7 @@ export class EventQueue {
    * @param index - Index of the element to bubble down
    */
   private bubbleDown(index: number): void {
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const leftChild = 2 * index + 1;
       const rightChild = 2 * index + 2;

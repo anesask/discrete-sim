@@ -147,9 +147,7 @@ function runSimulation() {
   const rng = new Random(RANDOM_SEED);
 
   // Start arrival process
-  sim.process(() =>
-    arrivalProcess(dock, forklift, inspector, stats, rng, sim)
-  );
+  sim.process(() => arrivalProcess(dock, forklift, inspector, stats, rng, sim));
 
   // Run simulation
   console.log('Running simulation...');
@@ -239,15 +237,21 @@ function runSimulation() {
   console.log('\nResource Utilization (sorted):');
   for (const { name, utilization } of utilizations) {
     const bar = '#'.repeat(Math.floor(utilization * 50));
-    console.log(`  ${name.padEnd(15)} ${(utilization * 100).toFixed(1)}% ${bar}`);
+    console.log(
+      `  ${name.padEnd(15)} ${(utilization * 100).toFixed(1)}% ${bar}`
+    );
   }
 
   const bottleneck = utilizations[0];
   if (bottleneck && bottleneck.utilization > 0.8) {
-    console.log(`\n[WARNING] BOTTLENECK: ${bottleneck.name} is heavily utilized (${(bottleneck.utilization * 100).toFixed(1)}%)`);
+    console.log(
+      `\n[WARNING] BOTTLENECK: ${bottleneck.name} is heavily utilized (${(bottleneck.utilization * 100).toFixed(1)}%)`
+    );
     console.log(`   Consider adding more ${bottleneck.name} resources.`);
   } else {
-    console.log('\n[OK] No severe bottlenecks detected (all resources < 80% utilized)');
+    console.log(
+      '\n[OK] No severe bottlenecks detected (all resources < 80% utilized)'
+    );
   }
 
   console.log('\n' + '='.repeat(60));

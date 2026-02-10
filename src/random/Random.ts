@@ -33,7 +33,7 @@ export class Random {
    */
   constructor(seed?: number) {
     // Use modulo to ensure timestamp fits within safe range
-    const initialSeed = seed ?? (Date.now() % this.maxSafeSeed);
+    const initialSeed = seed ?? Date.now() % this.maxSafeSeed;
     this.validateSeed(initialSeed);
     this.seed = initialSeed;
   }

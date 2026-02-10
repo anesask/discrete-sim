@@ -174,7 +174,14 @@ describe('Priority Queues', () => {
 
       // First is served immediately, then by priority:
       // VIP (-10), High (-5), Medium (5), Low1 (10), Low2 (10)
-      expect(results).toEqual(['First', 'VIP', 'High', 'Medium', 'Low1', 'Low2']);
+      expect(results).toEqual([
+        'First',
+        'VIP',
+        'High',
+        'Medium',
+        'Low1',
+        'Low2',
+      ]);
     });
 
     it('should work with multiple capacity', () => {
@@ -451,7 +458,18 @@ describe('Priority Queues', () => {
       sim.run();
 
       // Should be served in order: 0,1,2,3,4,5,6,7,8,9
-      expect(results).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
+      expect(results).toEqual([
+        '0',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9',
+      ]);
     });
 
     it('should handle interleaved priorities correctly', () => {

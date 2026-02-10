@@ -217,7 +217,10 @@ describe('Advanced Statistics', () => {
       }
 
       const histogram = stats.getHistogram('distribution', 10);
-      const totalFrequency = histogram.reduce((sum, bin) => sum + bin.frequency, 0);
+      const totalFrequency = histogram.reduce(
+        (sum, bin) => sum + bin.frequency,
+        0
+      );
       expect(totalFrequency).toBeCloseTo(1.0, 5);
     });
 
@@ -280,7 +283,9 @@ describe('Advanced Statistics', () => {
       const csv = stats.toCSV();
 
       expect(csv).toContain('# Sample Statistics');
-      expect(csv).toContain('Metric,Count,Mean,Min,Max,Variance,StdDev,P50,P95,P99');
+      expect(csv).toContain(
+        'Metric,Count,Mean,Min,Max,Variance,StdDev,P50,P95,P99'
+      );
       expect(csv).toContain('wait-time');
     });
 
