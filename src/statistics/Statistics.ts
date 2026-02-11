@@ -1,4 +1,5 @@
 import { Simulation } from '../core/Simulation.js';
+import { ValidationError, validateFinite } from '../utils/validation.js';
 
 /**
  * A single data point in a timeseries
@@ -110,8 +111,12 @@ export class Statistics {
    * ```
    */
   setWarmupPeriod(endTime: number): void {
+    validateFinite(endTime, 'endTime', 'Warmup period must be a valid time');
     if (endTime < 0) {
-      throw new Error('warmup period end time must be non-negative');
+      throw new ValidationError(
+        'warmup period end time must be non-negative',
+        { endTime }
+      );
     }
     this.warmupEndTime = endTime;
   }
@@ -148,6 +153,13 @@ export class Statistics {
    * ```
    */
   recordValue(name: string, value: number): void {
+    // Validate metric name
+    if (!name || name.trim() === '') {
+      throw new ValidationError('Metric name cannot be empty', { name });
+    }
+    // Validate value
+    validateFinite(value, 'value', 'Metric values must be valid numbers');
+
     const currentTime = this.simulation.now;
 
     // If this metric was previously recorded, accumulate the time-weighted sum
@@ -234,6 +246,13 @@ export class Statistics {
    * ```
    */
   increment(name: string, amount = 1): void {
+    // Validate metric name
+    if (!name || name.trim() === '') {
+      throw new ValidationError('Metric name cannot be empty', { name });
+    }
+    // Validate amount
+    validateFinite(amount, 'amount', 'Increment amount must be a valid number');
+
     const currentCount = this.counters.get(name) || 0;
     this.counters.set(name, currentCount + amount);
   }
@@ -495,6 +514,13 @@ export class Statistics {
    * ```
    */
   recordSample(name: string, value: number): void {
+    // Validate metric name
+    if (!name || name.trim() === '') {
+      throw new ValidationError('Metric name cannot be empty', { name });
+    }
+    // Validate value
+    validateFinite(value, 'value', 'Sample values must be valid numbers');
+
     if (!this.trackSamples.has(name)) {
       return; // Silently ignore if not tracking samples for this metric
     }
@@ -555,6 +581,19 @@ export class Statistics {
    * ```
    */
   getPercentile(name: string, percentile: number): number {
+    // Validate percentile range
+    validateFinite(
+      percentile,
+      'percentile',
+      'Percentile must be a valid number'
+    );
+    if (percentile < 0 || percentile > 100) {
+      throw new ValidationError(
+        'Percentile must be between 0 and 100 (got ' + percentile + ')',
+        { percentile }
+      );
+    }
+
     const sampleData = this.samples.get(name);
     if (!sampleData || sampleData.length === 0) {
       return 0;
@@ -721,6 +760,19 @@ export class Statistics {
    * ```
    */
   getHistogram(name: string, bins = 10): HistogramBin[] {
+    // Validate bins
+    validateFinite(bins, 'bins', 'Number of bins must be a valid number');
+    if (bins < 1) {
+      throw new ValidationError('Number of bins must be at least 1 (got ' + bins + ')', {
+        bins,
+      });
+    }
+    if (!Number.isInteger(bins)) {
+      throw new ValidationError('Number of bins must be an integer (got ' + bins + ')', {
+        bins,
+      });
+    }
+
     const sampleData = this.samples.get(name);
     if (!sampleData || sampleData.length === 0) {
       return [];

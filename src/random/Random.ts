@@ -1,3 +1,5 @@
+import { ValidationError } from '../utils/validation.js';
+
 /**
  * Seedable random number generator for discrete-event simulation.
  * Uses a Linear Congruential Generator (LCG) for reproducible random sequences.
@@ -71,26 +73,30 @@ export class Random {
    */
   private validateSeed(seed: number): void {
     if (!Number.isFinite(seed)) {
-      throw new Error(
-        `Seed must be a finite number (got ${seed}). Use a valid integer seed for reproducible random sequences.`
+      throw new ValidationError(
+        `Seed must be a finite number (got ${seed}). Use a valid integer seed for reproducible random sequences.`,
+        { seed }
       );
     }
 
     if (!Number.isInteger(seed)) {
-      throw new Error(
-        `Seed must be an integer (got ${seed}). Non-integer seeds may produce inconsistent results.`
+      throw new ValidationError(
+        `Seed must be an integer (got ${seed}). Non-integer seeds may produce inconsistent results.`,
+        { seed }
       );
     }
 
     if (seed < 0) {
-      throw new Error(
-        `Seed must be non-negative (got ${seed}). Use a positive integer seed.`
+      throw new ValidationError(
+        `Seed must be non-negative (got ${seed}). Use a positive integer seed.`,
+        { seed }
       );
     }
 
     if (seed > this.maxSafeSeed) {
-      throw new Error(
-        `Seed exceeds maximum safe value of ${this.maxSafeSeed} (got ${seed}). Large seeds may cause overflow in LCG calculations.`
+      throw new ValidationError(
+        `Seed exceeds maximum safe value of ${this.maxSafeSeed} (got ${seed}). Large seeds may cause overflow in LCG calculations.`,
+        { seed, maxSafeSeed: this.maxSafeSeed }
       );
     }
   }
@@ -121,7 +127,7 @@ export class Random {
    */
   uniform(min: number, max: number): number {
     if (min >= max) {
-      throw new Error('min must be less than max');
+      throw new ValidationError('min must be less than max', { min, max });
     }
     return min + this.next() * (max - min);
   }
@@ -141,7 +147,7 @@ export class Random {
    */
   exponential(mean: number): number {
     if (mean <= 0) {
-      throw new Error('mean must be positive');
+      throw new ValidationError('mean must be positive', { mean });
     }
     // Inverse transform method: -mean * ln(U) where U ~ Uniform(0,1)
     return -mean * Math.log(this.next());
@@ -163,7 +169,7 @@ export class Random {
    */
   normal(mean: number, stdDev: number): number {
     if (stdDev < 0) {
-      throw new Error('stdDev must be non-negative');
+      throw new ValidationError('stdDev must be non-negative', { stdDev });
     }
     if (stdDev === 0) {
       return mean;
@@ -191,8 +197,19 @@ export class Random {
    * ```
    */
   randint(min: number, max: number): number {
+    // Validate bounds are finite
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      throw new ValidationError(
+        'min and max must be finite numbers',
+        { min, max }
+      );
+    }
+
     if (min > max) {
-      throw new Error('min must be less than or equal to max');
+      throw new ValidationError('min must be less than or equal to max', {
+        min,
+        max,
+      });
     }
     min = Math.ceil(min);
     max = Math.floor(max);
@@ -216,11 +233,15 @@ export class Random {
    */
   triangular(min: number, max: number, mode?: number): number {
     if (min >= max) {
-      throw new Error('min must be less than max');
+      throw new ValidationError('min must be less than max', { min, max });
     }
     const m = mode ?? (min + max) / 2;
     if (m < min || m > max) {
-      throw new Error('mode must be between min and max');
+      throw new ValidationError('mode must be between min and max', {
+        min,
+        max,
+        mode: m,
+      });
     }
 
     const u = this.next();
@@ -248,7 +269,7 @@ export class Random {
    */
   poisson(lambda: number): number {
     if (lambda <= 0) {
-      throw new Error('lambda must be positive');
+      throw new ValidationError('lambda must be positive', { lambda });
     }
 
     // Knuth's algorithm for Poisson distribution
@@ -278,7 +299,9 @@ export class Random {
    */
   choice<T>(array: T[]): T {
     if (array.length === 0) {
-      throw new Error('Cannot choose from empty array');
+      throw new ValidationError('Cannot choose from empty array', {
+        arrayLength: 0,
+      });
     }
     const index = this.randint(0, array.length - 1);
     return array[index]!; // Non-null assertion: we know array is not empty

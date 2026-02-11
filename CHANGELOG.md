@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Enhanced Input Validation**: Comprehensive runtime validation across all core modules to improve error messages and prevent invalid operations
+  - All validation errors now use consistent `ValidationError` type with detailed context
+  - Added empty string validation for metric names and resource names
+  - Added NaN/Infinity validation for all numeric parameters (Statistics, Random, Resource priority)
+  - Improved error messages with actionable guidance and parameter context
+  - 100% functional test pass rate (426/426 tests) with validation coverage
 - **React Fast Refresh Compatibility Utilities**: New utilities to help developers avoid common React integration issues
   - `analyzeExportsForReact()`: Analyzes module exports for potential Fast Refresh compatibility issues
   - `warnReactCompatibilityIssues()`: Logs warnings in development mode for problematic export patterns

@@ -1,5 +1,9 @@
 import { EventQueue } from './EventQueue.js';
-import { validateNonNegative, validateTime } from '../utils/validation.js';
+import {
+  ValidationError,
+  validateNonNegative,
+  validateTime,
+} from '../utils/validation.js';
 import { Process, type ProcessGenerator } from './Process.js';
 
 /**
@@ -281,6 +285,13 @@ export class Simulation {
 
     // Validate until parameter if provided
     if (until !== undefined) {
+      // Type guard: ensure it's actually a number
+      if (typeof until !== 'number') {
+        throw new ValidationError(
+          `until must be a number (got ${typeof until})`,
+          { until, type: typeof until }
+        );
+      }
       validateTime(until, 'until', true);
     }
 

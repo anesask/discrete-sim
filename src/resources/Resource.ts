@@ -1,6 +1,10 @@
 import { Simulation } from '../core/Simulation.js';
 import { Process, PreemptionError } from '../core/Process.js';
-import { validateCapacity, validateRelease } from '../utils/validation.js';
+import {
+  ValidationError,
+  validateCapacity,
+  validateRelease,
+} from '../utils/validation.js';
 
 /**
  * Configuration options for a resource
@@ -37,7 +41,16 @@ export class ResourceRequest {
   constructor(
     public readonly resource: Resource,
     public readonly priority: number = 0
-  ) {}
+  ) {
+    // Validate priority
+    if (!Number.isFinite(priority)) {
+      throw new ValidationError(
+        `Priority must be a finite number (got ${priority}). Lower numbers have higher priority.`,
+        { priority }
+      );
+    }
+    // Note: Negative priorities are allowed (lower number = higher priority)
+  }
 }
 
 /**
@@ -103,6 +116,13 @@ export class Resource {
   ) {
     // Validate capacity with helpful error message
     validateCapacity(capacity, options.name);
+
+    // Validate name if provided
+    if (options.name !== undefined && options.name.trim() === '') {
+      throw new ValidationError('Resource name cannot be empty', {
+        name: options.name,
+      });
+    }
 
     this.simulation = simulation;
     this.capacity = capacity;
