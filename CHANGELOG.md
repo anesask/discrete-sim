@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-02-11
+
 ### Added
 
 - **Enhanced Input Validation**: Comprehensive runtime validation across all core modules to improve error messages and prevent invalid operations

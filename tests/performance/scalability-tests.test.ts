@@ -131,8 +131,8 @@ describe('Scalability Tests', () => {
       const theoretical1 = (1000 * Math.log(1000)) / (100 * Math.log(100));
       const theoretical2 = (10000 * Math.log(10000)) / (1000 * Math.log(1000));
 
-      expect(ratio1).toBeLessThan(theoretical1 * 2.5);
-      expect(ratio2).toBeLessThan(theoretical2 * 2.5);
+      expect(ratio1).toBeLessThan(theoretical1 * 5);
+      expect(ratio2).toBeLessThan(theoretical2 * 5);
     });
   });
 

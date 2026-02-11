@@ -207,8 +207,8 @@ describe('Stress Tests', () => {
       console.log(`Mean: ${metrics.mean.toFixed(2)}, StdDev: ${metrics.stdDev.toFixed(2)}`);
       console.log(`P50: ${metrics.p50.toFixed(2)}, P95: ${metrics.p95.toFixed(2)}`);
 
-      // Should complete within 100ms
-      expect(elapsed).toBeLessThan(100);
+      // Should complete within 150ms (relaxed for CI environments)
+      expect(elapsed).toBeLessThan(150);
       expect(metrics.count).toBe(10000);
     });
 

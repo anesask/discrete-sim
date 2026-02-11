@@ -149,9 +149,14 @@ export class EventQueue {
     // the relationship between the removed element and the swapped element
     const parentIndex = Math.floor((index - 1) / 2);
 
+    const currentElement = this.heap[index];
+    const parentElement = this.heap[parentIndex];
+
     if (
       index > 0 &&
-      this.compare(this.heap[index], this.heap[parentIndex]) < 0
+      currentElement !== undefined &&
+      parentElement !== undefined &&
+      this.compare(currentElement, parentElement) < 0
     ) {
       // Element is smaller than parent, bubble up
       this.bubbleUp(index);
