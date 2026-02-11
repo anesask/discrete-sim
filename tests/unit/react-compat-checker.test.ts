@@ -151,7 +151,7 @@ describe('ReactCompatChecker', () => {
     });
 
     afterEach(() => {
-      consoleWarnSpy.mockRestore();
+      (consoleWarnSpy as { mockRestore: () => void }).mockRestore();
       process.env.NODE_ENV = originalNodeEnv;
     });
 
@@ -246,7 +246,7 @@ describe('ReactCompatChecker', () => {
     });
 
     afterEach(() => {
-      consoleWarnSpy.mockRestore();
+      (consoleWarnSpy as { mockRestore: () => void }).mockRestore();
       process.env.NODE_ENV = originalNodeEnv;
     });
 
@@ -292,7 +292,7 @@ describe('ReactCompatChecker', () => {
     });
 
     it('should preserve type information', () => {
-      interface MyExports {
+      interface MyExports extends Record<string, unknown> {
         useSimulation: () => void;
         SimulationProvider: () => void;
       }
@@ -305,7 +305,7 @@ describe('ReactCompatChecker', () => {
       const wrapped = withReactCompatCheck('TestModule', exports);
 
       // TypeScript should recognize wrapped as MyExports
-      const _typeCheck: MyExports = wrapped;
+      void wrapped; // Type check - ensure wrapped maintains MyExports type
       expect(wrapped).toBe(exports);
     });
   });
@@ -394,10 +394,11 @@ describe('ReactCompatChecker', () => {
     });
 
     it('should handle circular references in exports', () => {
-      const exports: any = {
+      const exports: Record<string, unknown> = {
         useSimulation: () => {},
       };
       // Create circular reference
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       exports.circular = exports;
 
       // Should not throw

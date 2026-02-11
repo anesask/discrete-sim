@@ -452,8 +452,8 @@ describe('Preemption', () => {
       sim.run();
 
       expect(caughtError).toBeInstanceOf(PreemptionError);
-      expect(caughtError?.name).toBe('PreemptionError');
-      expect(caughtError?.message).toContain('Preempted by higher priority');
+      expect(caughtError!.name).toBe('PreemptionError');
+      expect(caughtError!.message).toContain('Preempted by higher priority');
     });
   });
 

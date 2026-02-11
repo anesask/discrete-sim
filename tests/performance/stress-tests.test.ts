@@ -256,7 +256,6 @@ describe('Stress Tests', () => {
           time: Math.random() * 1000,
           priority: i,
           callback: () => {},
-          id: `event-${i}`,
         });
       }
 

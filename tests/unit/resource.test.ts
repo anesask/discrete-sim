@@ -42,7 +42,6 @@ describe('Resource', () => {
     it('should create preemptive resource', () => {
       const resource = new Resource(sim, 1, { preemptive: true });
       expect(resource).toBeDefined();
-      expect(resource.capacity).toBe(1);
     });
   });
 

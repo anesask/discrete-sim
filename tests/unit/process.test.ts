@@ -295,7 +295,7 @@ describe('Process', () => {
       sim.run();
 
       expect(caughtError).toBe(interruptError);
-      expect(caughtError?.message).toBe('Custom interrupt reason');
+      expect(caughtError!.message).toBe('Custom interrupt reason');
     });
   });
 
@@ -403,7 +403,7 @@ describe('Process', () => {
     });
 
     it('should work with custom interval and maxIterations', () => {
-      let counter = 0;
+      const counter = 0;
       const checkTimes: number[] = [];
       let errorCaught = false;
 
