@@ -1,6 +1,14 @@
 import { Simulation } from './Simulation.js';
 import { ResourceRequest } from '../resources/Resource.js';
 import {
+  BufferPutRequest,
+  BufferGetRequest,
+} from '../resources/Buffer.js';
+import {
+  StorePutRequest,
+  StoreGetRequest,
+} from '../resources/Store.js';
+import {
   ValidationError,
   validateNonNegative,
   validateProcessState,
@@ -179,7 +187,15 @@ export class ConditionTimeoutError extends Error {
  * ```
  */
 export type ProcessGenerator = Generator<
-  Timeout | ResourceRequest | Condition,
+  | Timeout
+  | ResourceRequest
+  | Condition
+  | BufferPutRequest
+  | BufferGetRequest
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | StorePutRequest<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | StoreGetRequest<any>,
   void,
   void
 >;
@@ -368,6 +384,34 @@ export class Process {
               () => this.step(),
               this
             );
+          } else if (yieldedValue instanceof BufferPutRequest) {
+            yieldedValue.buffer._put(
+              yieldedValue.amount,
+              () => this.step(),
+              this
+            );
+          } else if (yieldedValue instanceof BufferGetRequest) {
+            yieldedValue.buffer._get(
+              yieldedValue.amount,
+              () => this.step(),
+              this
+            );
+          } else if (yieldedValue instanceof StorePutRequest) {
+            yieldedValue.store._put(
+              yieldedValue.item,
+              () => this.step(),
+              this
+            );
+          } else if (yieldedValue instanceof StoreGetRequest) {
+            yieldedValue.store._get(
+              yieldedValue.filter,
+              (item) => {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                yieldedValue.retrievedItem = item;
+                this.step();
+              },
+              this
+            );
           } else if (yieldedValue instanceof Condition) {
             this.waitForCondition(yieldedValue);
           }
@@ -409,6 +453,38 @@ export class Process {
         yieldedValue.resource._acquire(
           yieldedValue.priority,
           () => this.step(),
+          this
+        );
+      } else if (yieldedValue instanceof BufferPutRequest) {
+        // Put tokens into buffer and continue when space available
+        yieldedValue.buffer._put(
+          yieldedValue.amount,
+          () => this.step(),
+          this
+        );
+      } else if (yieldedValue instanceof BufferGetRequest) {
+        // Get tokens from buffer and continue when tokens available
+        yieldedValue.buffer._get(
+          yieldedValue.amount,
+          () => this.step(),
+          this
+        );
+      } else if (yieldedValue instanceof StorePutRequest) {
+        // Put item into store and continue when space available
+        yieldedValue.store._put(
+          yieldedValue.item,
+          () => this.step(),
+          this
+        );
+      } else if (yieldedValue instanceof StoreGetRequest) {
+        // Get item from store and continue when item available
+        yieldedValue.store._get(
+          yieldedValue.filter,
+          (item) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            yieldedValue.retrievedItem = item;
+            this.step();
+          },
           this
         );
       } else if (yieldedValue instanceof Condition) {

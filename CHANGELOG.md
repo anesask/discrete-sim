@@ -5,7 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.6] - 2026-02-11
+
+### Added
+
+- **Buffer Resource**: New resource type for managing homogeneous quantities (fuel, money, raw materials)
+  - `Buffer(sim, capacity, options)`: Create buffer with optional initial level
+  - `put(amount)`: Add quantity to buffer, blocks if insufficient space
+  - `get(amount)`: Remove quantity from buffer, blocks if insufficient level
+  - `level`: Current quantity in buffer
+  - `available`: Space remaining in buffer
+  - `putQueueLength` / `getQueueLength`: Track waiting processes
+  - Comprehensive statistics tracking (put/get operations, queue lengths, wait times)
+  - 39 unit tests covering all functionality
+  - Example: `examples/fuel-station/` - Gas station simulation with fuel tank buffer
+  - Integration tests with Resource coordination
+
+- **Store Resource**: New resource type for managing distinct objects with filtering
+  - `Store<T>(sim, capacity, options)`: Create type-safe store with generic TypeScript support
+  - `put(item)`: Add object to store, blocks if full
+  - `get(filter?)`: Retrieve object (FIFO or filter-based), blocks until match available
+  - Filter-based retrieval: `get((item) => item.destination === 'NYC')`
+  - `items`: Read-only access to stored items
+  - `size`: Current number of items in store
+  - Comprehensive statistics tracking (put/get operations, queue lengths, wait times)
+  - 39 unit tests covering all functionality
+  - Example: `examples/warehouse-store/` - Distribution warehouse with pallet inventory
+  - Integration tests with Resource and Buffer coordination
+
+- **ProcessGenerator Type Enhancement**: Extended to support Buffer and Store request types
+  - Now includes `BufferPutRequest`, `BufferGetRequest`, `StorePutRequest<T>`, `StoreGetRequest<T>`
+  - Full type safety for all yieldable simulation primitives
+  - Improved TypeScript inference in generator functions
+
+### Documentation
+
+- New Buffer API documentation in README with usage examples
+- New Store API documentation in README with usage examples and filter patterns
+- `examples/fuel-station/README.md` - Complete guide for Buffer usage
+- `examples/warehouse-store/README.md` - Complete guide for Store usage with filtering
+- Updated roadmap with completed v0.1.6 features and future priorities (v0.1.7-v0.2.0)
+
+### Fixed
+
+- Relaxed performance benchmark threshold for random number generation test (50ms → 100ms) to prevent flaky failures on slower systems
+
+### Internal
+
+- Added ESLint suppressions for necessary `any` types in ProcessGenerator union
+- All 529 tests passing
+- Improved test file type safety with `ProcessGenerator` usage throughout
 
 ## [0.1.5] - 2026-02-11
 

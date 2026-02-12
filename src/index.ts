@@ -27,6 +27,22 @@ export {
   ResourceRequest,
 } from './resources/Resource.js';
 
+export {
+  Buffer,
+  BufferOptions,
+  BufferStatistics,
+  BufferPutRequest,
+  BufferGetRequest,
+} from './resources/Buffer.js';
+
+export {
+  Store,
+  StoreOptions,
+  StoreStatistics,
+  StorePutRequest,
+  StoreGetRequest,
+} from './resources/Store.js';
+
 // Statistics collection
 export {
   Statistics,
