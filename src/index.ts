@@ -3,8 +3,12 @@ export {
   Simulation,
   SimulationOptions,
   SimulationResult,
+  TraceOptions,
 } from './core/Simulation.js';
 export { EventQueue, Event } from './core/EventQueue.js';
+
+// Event coordination
+export { SimEvent, SimEventRequest } from './core/SimEvent.js';
 
 // Process-based modeling
 export {

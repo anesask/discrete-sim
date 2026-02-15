@@ -423,3 +423,33 @@ export function validateYieldedValue(value: unknown): void {
     );
   }
 }
+
+/**
+ * Validate that a name is valid (non-empty string).
+ * Used for resource names, metric names, and event names.
+ *
+ * @param name - The name to validate
+ * @param paramName - Name of the parameter (for error message)
+ * @param context - Additional context for error message (optional)
+ *
+ * @throws {ValidationError} If name is empty or contains only whitespace
+ *
+ * @example
+ * ```typescript
+ * validateName('my-resource', 'name'); // OK
+ * validateName('', 'name'); // Throws: name cannot be empty
+ * validateName('   ', 'name'); // Throws: name cannot be empty
+ * ```
+ */
+export function validateName(
+  name: string,
+  paramName: string = 'name',
+  context?: string
+): void {
+  if (typeof name !== 'string' || name.trim().length === 0) {
+    const msg = context
+      ? `${paramName} cannot be empty. ${context}`
+      : `${paramName} cannot be empty or whitespace`;
+    throw new ValidationError(msg, { [paramName]: name });
+  }
+}

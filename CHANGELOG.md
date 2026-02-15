@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-02-15
+
+### Added
+
+- **SimEvent (Event Coordination System)**: New signaling system for process coordination and synchronization
+  - `SimEvent(sim, name?)`: Create named or auto-generated events for process coordination
+  - `event.wait()`: Wait for an event to be triggered (blocks until trigger)
+  - `event.trigger(value?)`: Trigger event and resume all waiting processes with optional data payload
+  - `event.reset()`: Reset event for reuse in recurring patterns
+  - `event.isTriggered`: Check if event has been triggered
+  - `event.value`: Access value passed when event was triggered
+  - `event.waitingCount`: Number of processes currently waiting
+  - Support for barrier synchronization, broadcast patterns, and conditional waiting
+  - Automatic cleanup when processes are interrupted while waiting for events
+  - 24 comprehensive unit tests covering all coordination patterns
+  - Example: `examples/traffic-light/` - Traffic intersection simulation with signal coordination
+
+- **Observability & Trace Mode**: Comprehensive simulation monitoring and debugging capabilities
+  - `sim.enableTrace(options?)`: Enable selective tracing for events, resources, processes, and SimEvents
+  - `sim.disableTrace()`: Disable all tracing
+  - `sim.isTraceEnabled(type)`: Check if specific trace type is enabled
+  - `TraceOptions` interface: Configure which event types to trace
+  - New trace event handlers:
+    - `trace:resource` - Resource operations (request, release, put, get)
+    - `trace:process` - Process lifecycle events
+    - `trace:simevent` - Event coordination (trigger, wait, reset)
+  - Works seamlessly with existing event system (`on()`, `off()`, `emit()`)
+  - 17 comprehensive tests for observability features
+  - Zero performance overhead when disabled
+
+- **Enhanced ProcessGenerator Type**: Extended to support SimEventRequest
+  - Now includes `SimEventRequest` for event coordination
+  - Full type safety for event-based process coordination
+  - Improved TypeScript inference for all yieldable simulation primitives
+
+### Documentation
+
+- New SimEvent API documentation with coordination patterns
+- Observability guide with trace configuration examples
+- Traffic light coordination example demonstrating realistic event usage
+- Updated roadmap with completed v0.1.7 features
+
+### Internal
+
+- All 570 tests passing (24 new SimEvent tests, 17 new observability tests)
+- Process class now tracks current event requests for proper cleanup on interruption
+- Simulation class internal methods for trace emission (`_emitResource`, `_emitProcess`, `_emitSimEvent`)
+- SimEvent internal methods for process coordination (`_addWaiter`, `_removeWaiter`)
+- Added `validateName` utility for name validation
+
 ## [0.1.6] - 2026-02-11
 
 ### Added

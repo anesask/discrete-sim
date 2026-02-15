@@ -122,3 +122,7 @@ Desktop.ini
 # Backup files
 *.bak
 *.backup
+
+# Release notes and checklists
+RELEASE_CHECKLIST.md
+test-output.txt

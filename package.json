@@ -1,6 +1,6 @@
 {
   "name": "discrete-sim",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Discrete-event simulation library for JavaScript/TypeScript",
   "keywords": [
     "simulation",
