@@ -397,12 +397,14 @@ export class Process {
           } else if (yieldedValue instanceof BufferPutRequest) {
             yieldedValue.buffer._put(
               yieldedValue.amount,
+              yieldedValue.priority,
               () => this.step(),
               this
             );
           } else if (yieldedValue instanceof BufferGetRequest) {
             yieldedValue.buffer._get(
               yieldedValue.amount,
+              yieldedValue.priority,
               () => this.step(),
               this
             );
@@ -479,6 +481,7 @@ export class Process {
         // Put tokens into buffer and continue when space available
         yieldedValue.buffer._put(
           yieldedValue.amount,
+          yieldedValue.priority,
           () => this.step(),
           this
         );
@@ -486,6 +489,7 @@ export class Process {
         // Get tokens from buffer and continue when tokens available
         yieldedValue.buffer._get(
           yieldedValue.amount,
+          yieldedValue.priority,
           () => this.step(),
           this
         );

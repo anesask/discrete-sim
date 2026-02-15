@@ -6,6 +6,12 @@ import {
   validateNonNegative,
   validateFinite,
 } from '../utils/validation.js';
+import {
+  QueueDiscipline,
+  QueueDisciplineConfig,
+  validateQueueDiscipline,
+  getDefaultQueueConfig,
+} from '../types/queue-discipline.js';
 
 /**
  * Configuration options for a buffer
@@ -15,6 +21,10 @@ export interface BufferOptions {
   name?: string;
   /** Initial level of tokens in the buffer (default: 0) */
   initialLevel?: number;
+  /** Queue discipline for put queue (default: 'fifo') */
+  putQueueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
+  /** Queue discipline for get queue (default: 'fifo') */
+  getQueueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
 }
 
 /**
@@ -47,9 +57,16 @@ export interface BufferStatistics {
 export class BufferPutRequest {
   constructor(
     public readonly buffer: Buffer,
-    public readonly amount: number
+    public readonly amount: number,
+    public readonly priority: number = 0
   ) {
     validatePositive(amount, 'amount', 'Put amount must be positive');
+    if (!Number.isFinite(priority)) {
+      throw new ValidationError(
+        `Priority must be a finite number (got ${priority})`,
+        { priority }
+      );
+    }
   }
 }
 
@@ -59,9 +76,16 @@ export class BufferPutRequest {
 export class BufferGetRequest {
   constructor(
     public readonly buffer: Buffer,
-    public readonly amount: number
+    public readonly amount: number,
+    public readonly priority: number = 0
   ) {
     validatePositive(amount, 'amount', 'Get amount must be positive');
+    if (!Number.isFinite(priority)) {
+      throw new ValidationError(
+        `Priority must be a finite number (got ${priority})`,
+        { priority }
+      );
+    }
   }
 }
 
@@ -71,6 +95,8 @@ export class BufferGetRequest {
 interface QueuedPutRequest {
   /** Time when the request was made */
   requestTime: number;
+  /** Priority of the request (lower = higher priority) */
+  priority: number;
   /** Amount to put */
   amount: number;
   /** Callback to call when space is available */
@@ -85,6 +111,8 @@ interface QueuedPutRequest {
 interface QueuedGetRequest {
   /** Time when the request was made */
   requestTime: number;
+  /** Priority of the request (lower = higher priority) */
+  priority: number;
   /** Amount to get */
   amount: number;
   /** Callback to call when tokens are available */
@@ -124,7 +152,9 @@ export class Buffer {
   private currentLevel: number;
   private readonly putQueue: QueuedPutRequest[];
   private readonly getQueue: QueuedGetRequest[];
-  private readonly options: Required<BufferOptions>;
+  private readonly options: Required<Omit<BufferOptions, 'putQueueDiscipline' | 'getQueueDiscipline'>>;
+  private readonly putQueueConfig: QueueDisciplineConfig;
+  private readonly getQueueConfig: QueueDisciplineConfig;
 
   // Statistics tracking
   private totalPutsCount: number;
@@ -188,6 +218,14 @@ export class Buffer {
       initialLevel: initialLevel,
     };
 
+    // Configure queue disciplines
+    this.putQueueConfig = options.putQueueDiscipline
+      ? validateQueueDiscipline(options.putQueueDiscipline)
+      : getDefaultQueueConfig();
+    this.getQueueConfig = options.getQueueDiscipline
+      ? validateQueueDiscipline(options.getQueueDiscipline)
+      : getDefaultQueueConfig();
+
     // Initialize statistics
     this.totalPutsCount = 0;
     this.totalGetsCount = 0;
@@ -220,8 +258,8 @@ export class Buffer {
    * }
    * ```
    */
-  put(amount: number): BufferPutRequest {
-    return new BufferPutRequest(this, amount);
+  put(amount: number, priority: number = 0): BufferPutRequest {
+    return new BufferPutRequest(this, amount, priority);
   }
 
   /**
@@ -240,8 +278,8 @@ export class Buffer {
    * }
    * ```
    */
-  get(amount: number): BufferGetRequest {
-    return new BufferGetRequest(this, amount);
+  get(amount: number, priority: number = 0): BufferGetRequest {
+    return new BufferGetRequest(this, amount, priority);
   }
 
   /**
@@ -251,7 +289,12 @@ export class Buffer {
    * @param process - Process making the request
    * @internal
    */
-  _put(amount: number, onAcquired: () => void, process?: Process): void {
+  _put(
+    amount: number,
+    priority: number,
+    onAcquired: () => void,
+    process?: Process
+  ): void {
     // Validate amount doesn't exceed capacity
     if (amount > this.capacityValue) {
       throw new ValidationError(
@@ -276,13 +319,8 @@ export class Buffer {
       // Try to fulfill waiting get requests
       this.tryFulfillGets();
     } else {
-      // Not enough space, add to queue
-      this.putQueue.push({
-        requestTime: this.simulation.now,
-        amount,
-        onAcquired,
-        process,
-      });
+      // Not enough space, add to queue using discipline
+      this.insertIntoPutQueue(priority, amount, onAcquired, process);
     }
   }
 
@@ -293,7 +331,12 @@ export class Buffer {
    * @param process - Process making the request
    * @internal
    */
-  _get(amount: number, onAcquired: () => void, process?: Process): void {
+  _get(
+    amount: number,
+    priority: number,
+    onAcquired: () => void,
+    process?: Process
+  ): void {
     // Update statistics BEFORE changing state
     this.updateStatistics();
 
@@ -310,13 +353,8 @@ export class Buffer {
       // Try to fulfill waiting put requests
       this.tryFulfillPuts();
     } else {
-      // Not enough tokens, add to queue
-      this.getQueue.push({
-        requestTime: this.simulation.now,
-        amount,
-        onAcquired,
-        process,
-      });
+      // Not enough tokens, add to queue using discipline
+      this.insertIntoGetQueue(priority, amount, onAcquired, process);
     }
   }
 
@@ -473,5 +511,108 @@ export class Buffer {
 
       this.lastSampleTime = currentTime;
     }
+  }
+
+  /**
+   * Insert request into put queue according to the configured queue discipline.
+   * @private
+   */
+  private insertIntoPutQueue(
+    priority: number,
+    amount: number,
+    onAcquired: () => void,
+    process?: Process
+  ): void {
+    const newRequest: QueuedPutRequest = {
+      requestTime: this.simulation.now,
+      priority,
+      amount,
+      onAcquired,
+      process,
+    };
+
+    this.insertIntoQueue(this.putQueue, newRequest, this.putQueueConfig);
+  }
+
+  /**
+   * Insert request into get queue according to the configured queue discipline.
+   * @private
+   */
+  private insertIntoGetQueue(
+    priority: number,
+    amount: number,
+    onAcquired: () => void,
+    process?: Process
+  ): void {
+    const newRequest: QueuedGetRequest = {
+      requestTime: this.simulation.now,
+      priority,
+      amount,
+      onAcquired,
+      process,
+    };
+
+    this.insertIntoQueue(this.getQueue, newRequest, this.getQueueConfig);
+  }
+
+  /**
+   * Generic queue insertion based on discipline.
+   * @private
+   */
+  private insertIntoQueue<T extends { priority: number; requestTime: number }>(
+    queue: T[],
+    newRequest: T,
+    config: QueueDisciplineConfig
+  ): void {
+    switch (config.type) {
+      case 'fifo':
+        queue.push(newRequest);
+        break;
+
+      case 'lifo':
+        queue.unshift(newRequest);
+        break;
+
+      case 'priority':
+        this.insertByPriority(queue, newRequest, config.tieBreaker === 'fifo');
+        break;
+    }
+  }
+
+  /**
+   * Insert into queue by priority.
+   * @private
+   */
+  private insertByPriority<T extends { priority: number; requestTime: number }>(
+    queue: T[],
+    newRequest: T,
+    useFifoTieBreaker: boolean
+  ): void {
+    let left = 0;
+    let right = queue.length;
+
+    while (left < right) {
+      const mid = Math.floor((left + right) / 2);
+      const existingRequest = queue[mid]!;
+
+      if (existingRequest.priority < newRequest.priority) {
+        left = mid + 1;
+      } else if (existingRequest.priority > newRequest.priority) {
+        right = mid;
+      } else {
+        // Same priority - use tie-breaker
+        if (useFifoTieBreaker) {
+          if (existingRequest.requestTime <= newRequest.requestTime) {
+            left = mid + 1;
+          } else {
+            right = mid;
+          }
+        } else {
+          right = mid;
+        }
+      }
+    }
+
+    queue.splice(left, 0, newRequest);
   }
 }

@@ -8,7 +8,7 @@ describe('Priority Queues', () => {
 
   beforeEach(() => {
     sim = new Simulation();
-    server = new Resource(sim, 1, { name: 'Server' });
+    server = new Resource(sim, 1, { name: 'Server', queueDiscipline: 'priority' });
     results.length = 0;
   });
 

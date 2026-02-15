@@ -5,6 +5,12 @@ import {
   validateCapacity,
   validateRelease,
 } from '../utils/validation.js';
+import {
+  QueueDiscipline,
+  QueueDisciplineConfig,
+  validateQueueDiscipline,
+  getDefaultQueueConfig,
+} from '../types/queue-discipline.js';
 
 /**
  * Configuration options for a resource
@@ -14,6 +20,8 @@ export interface ResourceOptions {
   name?: string;
   /** Enable preemption (allows higher priority to interrupt lower priority) */
   preemptive?: boolean;
+  /** Queue discipline (fifo, lifo, or priority). Default: 'fifo' for non-preemptive, 'priority' for preemptive */
+  queueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
 }
 
 /**
@@ -90,7 +98,8 @@ export class Resource {
   private inUseCount: number;
   private readonly queue: QueuedRequest[];
   private readonly activeUsers: ActiveUser[];
-  private readonly options: Required<ResourceOptions>;
+  private readonly options: Required<Omit<ResourceOptions, 'queueDiscipline'>>;
+  private readonly queueConfig: QueueDisciplineConfig;
 
   // Statistics tracking
   private totalRequestsCount: number;
@@ -133,6 +142,16 @@ export class Resource {
       name: options.name ?? 'Resource',
       preemptive: options.preemptive ?? false,
     };
+
+    // Determine queue discipline
+    // Default: 'priority' if preemptive, 'fifo' otherwise
+    if (options.queueDiscipline) {
+      this.queueConfig = validateQueueDiscipline(options.queueDiscipline);
+    } else {
+      this.queueConfig = this.options.preemptive
+        ? { type: 'priority', tieBreaker: 'fifo' }
+        : getDefaultQueueConfig();
+    }
 
     // Initialize statistics
     this.totalRequestsCount = 0;
@@ -224,8 +243,7 @@ export class Resource {
   }
 
   /**
-   * Insert request into priority queue using binary search.
-   * O(log n) search + O(n) splice, but faster for large queues.
+   * Insert request into queue according to the configured queue discipline.
    * @private
    */
   private insertIntoQueue(
@@ -240,30 +258,60 @@ export class Resource {
       process,
     };
 
+    switch (this.queueConfig.type) {
+      case 'fifo':
+        // First In First Out - append to end
+        this.queue.push(newRequest);
+        break;
+
+      case 'lifo':
+        // Last In First Out - prepend to front
+        this.queue.unshift(newRequest);
+        break;
+
+      case 'priority':
+        // Priority-based with configurable tie-breaker
+        this.insertByPriority(newRequest);
+        break;
+    }
+  }
+
+  /**
+   * Insert request into priority queue using binary search.
+   * O(log n) search + O(n) splice, but faster for large queues.
+   * @private
+   */
+  private insertByPriority(newRequest: QueuedRequest): void {
     // Binary search to find insertion position
     // Lower priority number = higher priority (served first)
-    // Same priority maintains FIFO order (by requestTime)
+    // Tie-breaker determines order for same-priority requests
     let left = 0;
     let right = this.queue.length;
+
+    const useFifoTieBreaker = this.queueConfig.tieBreaker === 'fifo';
 
     while (left < right) {
       const mid = Math.floor((left + right) / 2);
       const existingRequest = this.queue[mid]!;
 
       // Compare priorities first
-      if (existingRequest.priority < priority) {
+      if (existingRequest.priority < newRequest.priority) {
         // Existing request has higher priority, search right half
         left = mid + 1;
-      } else if (existingRequest.priority > priority) {
+      } else if (existingRequest.priority > newRequest.priority) {
         // Existing request has lower priority, search left half
         right = mid;
       } else {
-        // Same priority, compare request times for FIFO order
-        if (existingRequest.requestTime <= newRequest.requestTime) {
-          // Existing request came first or same time, search right half
-          left = mid + 1;
+        // Same priority - use tie-breaker
+        if (useFifoTieBreaker) {
+          // FIFO: compare request times
+          if (existingRequest.requestTime <= newRequest.requestTime) {
+            left = mid + 1;
+          } else {
+            right = mid;
+          }
         } else {
-          // New request came first, search left half
+          // LIFO: insert before existing request
           right = mid;
         }
       }

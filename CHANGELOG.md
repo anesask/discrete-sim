@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-02-15
+
+### Added
+
+- **Queue Disciplines for Resources**: Flexible queue management with FIFO, LIFO, and Priority disciplines
+  - `queueDiscipline` option for Resource constructor: `'fifo' | 'lifo' | 'priority'`
+  - FIFO (First In First Out): Traditional queue, serves requests in arrival order (default)
+  - LIFO (Last In First Out): Stack behavior, serves most recent request first
+  - Priority: Serves requests by priority value (lower number = higher priority)
+  - Configurable tie-breakers for priority queues: `{ type: 'priority', tieBreaker: 'fifo' | 'lifo' }`
+  - Binary search insertion (O(log n)) for efficient priority queue operations
+  - Backward compatible: existing code continues to work with default FIFO behavior
+  - Preemptive resources now default to priority discipline (was implicit, now explicit)
+  - 17 comprehensive tests covering all queue discipline behaviors
+
+- **Queue Disciplines for Buffer**: Independent queue disciplines for put and get operations
+  - `putQueueDiscipline` option: Controls ordering of waiting put requests
+  - `getQueueDiscipline` option: Controls ordering of waiting get requests
+  - Priority parameter added to `put(amount, priority?)` and `get(amount, priority?)` methods
+  - Full support for FIFO, LIFO, and Priority disciplines on both queues
+  - Enables advanced patterns like priority deliveries, rush orders, and preferential withdrawals
+
+- **Type System for Queue Disciplines**: New types in `src/types/queue-discipline.ts`
+  - `QueueDiscipline` type: `'fifo' | 'lifo' | 'priority'`
+  - `QueueDisciplineConfig` interface: Extended configuration with tie-breaker support
+  - `validateQueueDiscipline()`: Runtime validation with helpful error messages
+  - `getDefaultQueueConfig()`: Default configuration factory
+
+### Examples
+
+- **Hospital Emergency Room** (`examples/hospital-er/`): Priority queue demonstration
+  - Realistic healthcare triage scenario with Critical/Urgent/Routine patients
+  - Side-by-side comparison of FIFO vs Priority queue disciplines
+  - Statistical analysis showing 70-85% reduction in critical patient wait times
+  - Demonstrates real-world trade-offs: critical patients benefit, routine patients wait longer
+  - Complete README with implementation patterns and key takeaways
+
+### Documentation
+
+- Updated README with queue discipline documentation
+  - New "Queue Disciplines" section under Resources
+  - Buffer queue discipline examples
+  - Priority tie-breaker configuration examples
+- Updated examples section to feature Hospital ER as primary queue discipline demo
+- CHANGELOG updated with comprehensive v0.1.8 feature list
+
+### Changed
+
+- Resource class now explicitly supports queue discipline configuration
+- Buffer class signatures updated to include priority parameters (backward compatible)
+- Preemptive resources now explicitly default to priority discipline (behavior unchanged)
+
+### Internal
+
+- Queue insertion logic refactored for clarity and performance
+- Binary search implementation for priority queues with configurable tie-breaking
+- Validation improvements for queue discipline configuration
+- Process class updated to pass priority parameters to Buffer operations
+
 ## [0.1.7] - 2026-02-15
 
 ### Added

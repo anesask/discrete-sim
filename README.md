@@ -14,7 +14,7 @@ Build and analyze complex systems with intuitive, generator-based process modeli
 ## Features
 
 - **Process-Based Modeling**: Use generator functions to describe processes naturally
-- **Resource Management**: Built-in support for shared resources with FIFO queuing
+- **Resource Management**: Built-in support for shared resources with flexible queue disciplines (FIFO, LIFO, Priority)
 - **Comprehensive Statistics**: Time-weighted averages, counters, and timeseries tracking
 - **Reproducible Results**: Seedable random number generator for consistent experiments
 - **TypeScript Native**: Full type safety and excellent IDE support
@@ -133,23 +133,61 @@ Resources automatically track:
 - Average wait time
 - Average queue length
 
-**Priority Queuing:**
+**Queue Disciplines (v0.1.8+):**
 
-Resources support priority-based queuing where lower priority values get served first:
+Resources support three queue disciplines to control how waiting requests are served:
 
 ```typescript
-const server = new Resource(sim, 1, { name: 'Server' });
+// FIFO (First In First Out) - default
+const fifoServer = new Resource(sim, 1, {
+  queueDiscipline: 'fifo'  // Serve in arrival order
+});
+
+// LIFO (Last In First Out) - stack behavior
+const lifoServer = new Resource(sim, 1, {
+  queueDiscipline: 'lifo'  // Serve most recent arrival first
+});
+
+// Priority Queue - serve by priority value (lower = higher priority)
+const priorityServer = new Resource(sim, 1, {
+  queueDiscipline: 'priority'  // Serve by priority
+});
 
 function* customer(priority: number) {
-  yield server.request(priority);  // 0 = highest priority
+  yield priorityServer.request(priority);  // 1 = highest, 10 = lowest
   yield* timeout(5);
-  server.release();
+  priorityServer.release();
 }
 
-// High priority customer (0) will be served before low priority (10)
-sim.process(() => customer(10));  // Low priority
-sim.process(() => customer(0));   // High priority - goes first
+// Critical patient (priority 1) served before routine (priority 10)
+sim.process(() => customer(10));  // Routine - low priority
+sim.process(() => customer(1));   // Critical - high priority, goes first
 ```
+
+**Priority Tie-Breakers:**
+
+For priority queues, configure how requests with the same priority are ordered:
+
+```typescript
+const server = new Resource(sim, 1, {
+  queueDiscipline: {
+    type: 'priority',
+    tieBreaker: 'fifo'  // Same priority? Use FIFO (default)
+  }
+});
+
+// Or use LIFO for same-priority requests
+const server = new Resource(sim, 1, {
+  queueDiscipline: {
+    type: 'priority',
+    tieBreaker: 'lifo'  // Same priority? Use LIFO
+  }
+});
+```
+
+**Real-World Example:**
+
+See the [Hospital ER example](examples/hospital-er/) for a complete demonstration of priority queuing in healthcare triage scenarios.
 
 **Preemptive Resources:**
 
@@ -225,6 +263,29 @@ function* tanker() {
 console.log(fuelTank.level);      // Current amount: 5000
 console.log(fuelTank.available);  // Space available: 5000
 console.log(fuelTank.capacity);   // Maximum: 10000
+```
+
+**Buffer Queue Disciplines (v0.1.8+):**
+
+Buffers support independent queue disciplines for put and get operations:
+
+```typescript
+const buffer = new Buffer(sim, 1000, {
+  name: 'Inventory',
+  putQueueDiscipline: 'priority',  // Priority for deliveries
+  getQueueDiscipline: 'fifo'       // FIFO for withdrawals
+});
+
+// High priority delivery (rush order)
+function* urgentDelivery() {
+  yield buffer.put(100, 1);  // priority = 1 (high)
+  // Delivered before lower priority puts
+}
+
+// Normal delivery
+function* normalDelivery() {
+  yield buffer.put(50, 10);  // priority = 10 (low)
+}
 ```
 
 **Key Differences from Resource:**
@@ -500,6 +561,22 @@ Event tracing is useful for:
 - Verifying simulation correctness
 
 ## Examples
+
+### Hospital Emergency Room (Priority Queues)
+
+Demonstrates priority queue disciplines in a realistic healthcare triage scenario. Compares FIFO vs Priority queuing to show how critical patients benefit from priority-based treatment.
+
+```bash
+npx tsx examples/hospital-er/index.ts
+```
+
+**Key Features:**
+- Three triage levels (Critical, Urgent, Routine)
+- Comparison of FIFO vs Priority queue disciplines
+- Statistical analysis showing 70-85% reduction in critical patient wait times
+- Real-world demonstration of queue discipline trade-offs
+
+[Full documentation](examples/hospital-er/README.md)
 
 ### M/M/1 Queue (Validation)
 

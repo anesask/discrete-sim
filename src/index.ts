@@ -10,6 +10,12 @@ export { EventQueue, Event } from './core/EventQueue.js';
 // Event coordination
 export { SimEvent, SimEventRequest } from './core/SimEvent.js';
 
+// Queue disciplines
+export {
+  QueueDiscipline,
+  QueueDisciplineConfig,
+} from './types/queue-discipline.js';
+
 // Process-based modeling
 export {
   Process,
