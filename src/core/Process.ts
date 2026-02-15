@@ -8,6 +8,7 @@ import {
   StorePutRequest,
   StoreGetRequest,
 } from '../resources/Store.js';
+import { SimEventRequest } from './SimEvent.js';
 import {
   ValidationError,
   validateNonNegative,
@@ -174,7 +175,7 @@ export class ConditionTimeoutError extends Error {
 
 /**
  * Type for process generator functions.
- * Generators can yield Timeout, ResourceRequest, or Condition objects.
+ * Generators can yield Timeout, ResourceRequest, Condition, SimEventRequest, or resource requests.
  *
  * @example
  * ```typescript
@@ -183,6 +184,7 @@ export class ConditionTimeoutError extends Error {
  *   yield resource.request();    // Request resource
  *   yield* timeout(10);          // Use for 10 units
  *   resource.release();          // Release resource
+ *   yield event.wait();          // Wait for event
  * }
  * ```
  */
@@ -195,7 +197,8 @@ export type ProcessGenerator = Generator<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | StorePutRequest<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  | StoreGetRequest<any>,
+  | StoreGetRequest<any>
+  | SimEventRequest,
   void,
   void
 >;
@@ -232,6 +235,7 @@ export class Process {
   private readonly generator: ProcessGenerator;
   private state: ProcessState;
   private interruptReason?: Error;
+  private currentEventRequest?: SimEventRequest;
 
   /**
    * Create a new process.
@@ -304,6 +308,12 @@ export class Process {
 
     this.state = 'interrupted';
     this.interruptReason = reason ?? new Error('Process interrupted');
+
+    // Clean up if waiting for an event
+    if (this.currentEventRequest) {
+      this.currentEventRequest.event._removeWaiter(this);
+      this.currentEventRequest = undefined;
+    }
 
     // Immediately trigger step() to throw the error into the generator
     // This allows the process to catch and handle the interruption
@@ -414,6 +424,16 @@ export class Process {
             );
           } else if (yieldedValue instanceof Condition) {
             this.waitForCondition(yieldedValue);
+          } else if (yieldedValue instanceof SimEventRequest) {
+            this.currentEventRequest = yieldedValue;
+            yieldedValue.event._addWaiter(
+              () => {
+                this.currentEventRequest = undefined;
+                this.step();
+              },
+              this,
+              yieldedValue
+            );
           }
           return;
         } else {
@@ -490,6 +510,17 @@ export class Process {
       } else if (yieldedValue instanceof Condition) {
         // Poll condition periodically
         this.waitForCondition(yieldedValue);
+      } else if (yieldedValue instanceof SimEventRequest) {
+        // Wait for event to be triggered
+        this.currentEventRequest = yieldedValue;
+        yieldedValue.event._addWaiter(
+          () => {
+            this.currentEventRequest = undefined;
+            this.step();
+          },
+          this,
+          yieldedValue
+        );
       } else {
         validateYieldedValue(yieldedValue);
       }

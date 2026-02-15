@@ -37,6 +37,20 @@ export interface SimulationResult {
 type EventHandler = (...args: unknown[]) => void;
 
 /**
+ * Trace configuration options
+ */
+export interface TraceOptions {
+  /** Enable event execution tracing */
+  events?: boolean;
+  /** Enable resource operation tracing */
+  resources?: boolean;
+  /** Enable process lifecycle tracing */
+  processes?: boolean;
+  /** Enable SimEvent coordination tracing */
+  simEvents?: boolean;
+}
+
+/**
  * Core discrete-event simulation engine.
  * Manages simulation time, event scheduling, and execution.
  *
@@ -82,6 +96,7 @@ export class Simulation {
   private readonly eventTrace: EventTrace[];
   private enableTracing: boolean;
   private readonly activeProcesses: Set<Process>;
+  private traceConfig: TraceOptions;
 
   /**
    * Create a new simulation instance.
@@ -112,6 +127,12 @@ export class Simulation {
     this.eventTrace = [];
     this.enableTracing = false;
     this.activeProcesses = new Set();
+    this.traceConfig = {
+      events: false,
+      resources: false,
+      processes: false,
+      simEvents: false,
+    };
 
     this.log('Simulation created', { options: this.options });
   }
@@ -533,5 +554,103 @@ export class Simulation {
    */
   _removeProcess(process: Process): void {
     this.activeProcesses.delete(process);
+  }
+
+  /**
+   * Enable comprehensive trace mode with optional filtering.
+   * When enabled, simulation events, resource operations, process lifecycle,
+   * and SimEvent coordination are logged via event handlers.
+   *
+   * @param options - Configuration for which types of events to trace
+   *
+   * @example
+   * ```typescript
+   * // Enable all tracing
+   * sim.enableTrace({
+   *   events: true,
+   *   resources: true,
+   *   processes: true,
+   *   simEvents: true
+   * });
+   *
+   * // Listen to trace events
+   * sim.on('trace:resource', (data) => {
+   *   console.log(`Resource ${data.resource} operation: ${data.operation}`);
+   * });
+   *
+   * // Enable only resource tracing
+   * sim.enableTrace({ resources: true });
+   * ```
+   */
+  enableTrace(options: TraceOptions = {}): void {
+    this.traceConfig = {
+      events: options.events ?? true,
+      resources: options.resources ?? true,
+      processes: options.processes ?? true,
+      simEvents: options.simEvents ?? true,
+    };
+  }
+
+  /**
+   * Disable trace mode.
+   * Stops emitting trace events.
+   *
+   * @example
+   * ```typescript
+   * sim.enableTrace({ resources: true });
+   * // ... run simulation ...
+   * sim.disableTrace(); // Stop tracing
+   * ```
+   */
+  disableTrace(): void {
+    this.traceConfig = {
+      events: false,
+      resources: false,
+      processes: false,
+      simEvents: false,
+    };
+  }
+
+  /**
+   * Check if a specific trace type is enabled.
+   *
+   * @param type - The trace type to check
+   * @returns true if the trace type is enabled
+   */
+  isTraceEnabled(type: keyof TraceOptions): boolean {
+    return this.traceConfig[type] ?? false;
+  }
+
+  /**
+   * Internal method to emit resource-related events for observability.
+   * Called by Resource, Buffer, and Store classes.
+   * @internal
+   */
+  _emitResource(operation: string, data: Record<string, unknown>): void {
+    if (this.traceConfig.resources) {
+      this.emit('trace:resource', { operation, time: this.currentTime, ...data });
+    }
+  }
+
+  /**
+   * Internal method to emit process-related events for observability.
+   * Called by Process class.
+   * @internal
+   */
+  _emitProcess(operation: string, data: Record<string, unknown>): void {
+    if (this.traceConfig.processes) {
+      this.emit('trace:process', { operation, time: this.currentTime, ...data });
+    }
+  }
+
+  /**
+   * Internal method to emit SimEvent-related events for observability.
+   * Called by SimEvent class.
+   * @internal
+   */
+  _emitSimEvent(operation: string, data: Record<string, unknown>): void {
+    if (this.traceConfig.simEvents) {
+      this.emit('trace:simevent', { operation, time: this.currentTime, ...data });
+    }
   }
 }
