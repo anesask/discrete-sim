@@ -195,6 +195,22 @@ export class Batch<T = any> {
       maxWait: options.maxWait,
       unbounded: options.unbounded ?? false,
     };
+    simulation._registerCollector(this);
+  }
+
+  /**
+   * Start the statistics over; accumulating items, formed batches and the
+   * queues are untouched.
+   */
+  resetStatistics(): void {
+    this.totalPutsCount = 0;
+    this.totalBatchesCount = 0;
+    this.partialBatchesCount = 0;
+    this.totalTakesCount = 0;
+    this.totalBatchedItems = 0;
+    this.totalItemWait = 0;
+    this.totalPutWait = 0;
+    this.totalTakeWait = 0;
   }
 
   /**

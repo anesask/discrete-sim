@@ -247,6 +247,27 @@ export class Buffer {
     this.getQueueLengthSum = 0;
     this.getQueueSampleCount = 0;
     this.lastSampleTime = simulation.now;
+    simulation._registerCollector(this);
+  }
+
+  /**
+   * Start the statistics over from the current time; the level and the
+   * waiting requests are untouched.
+   */
+  resetStatistics(): void {
+    this.totalPutsCount = 0;
+    this.totalGetsCount = 0;
+    this.totalAmountPutValue = 0;
+    this.totalAmountGotValue = 0;
+    this.totalPutWaitTime = 0;
+    this.totalGetWaitTime = 0;
+    this.levelSum = 0;
+    this.levelSampleCount = 0;
+    this.putQueueLengthSum = 0;
+    this.putQueueSampleCount = 0;
+    this.getQueueLengthSum = 0;
+    this.getQueueSampleCount = 0;
+    this.lastSampleTime = this.simulation.now;
   }
 
   /**

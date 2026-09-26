@@ -206,6 +206,24 @@ export class Resource {
     this.utilizationSum = 0;
     this.utilizationSampleCount = 0;
     this.lastSampleTime = simulation.now;
+    simulation._registerCollector(this);
+  }
+
+  /**
+   * Start the statistics over from the current time. Units in use, active
+   * users and the queue are untouched; counters and time-weighted sums begin
+   * again, so averages describe only what happens from now on.
+   */
+  resetStatistics(): void {
+    this.totalRequestsCount = 0;
+    this.totalReleasesCount = 0;
+    this.totalWaitTime = 0;
+    this.totalPreemptionsCount = 0;
+    this.queueLengthSum = 0;
+    this.queueLengthSampleCount = 0;
+    this.utilizationSum = 0;
+    this.utilizationSampleCount = 0;
+    this.lastSampleTime = this.simulation.now;
   }
 
   /**

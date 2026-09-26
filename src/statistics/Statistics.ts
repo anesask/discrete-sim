@@ -174,6 +174,38 @@ export class Statistics {
    */
   constructor(simulation: Simulation) {
     this.simulation = simulation;
+    simulation._registerCollector(this);
+  }
+
+  /**
+   * Start the statistics over from the current time while keeping the
+   * current value of every time-weighted metric (so its average restarts
+   * from now with the right starting level). Counters, samples, timeseries
+   * and caches are cleared; tracking settings and the warm-up period stay.
+   * Unlike reset(), the current values are preserved.
+   */
+  resetStatistics(): void {
+    const now = this.simulation.now;
+    // A reset at time t is a warm-up that ends at t: averages divide by time since then
+    this.warmupEndTime = Math.max(this.warmupEndTime, now);
+    for (const name of this.values.keys()) {
+      this.valueSums.set(name, 0);
+      this.lastUpdateTimes.set(name, now);
+    }
+    this.counters.clear();
+    for (const name of this.timeseries.keys()) {
+      this.timeseries.set(name, []);
+    }
+    for (const name of this.samples.keys()) {
+      this.samples.set(name, []);
+    }
+    this.sampleCounts.clear();
+    this.sampleMeans.clear();
+    this.sampleM2s.clear();
+    this.sortedSamplesCache.clear();
+    this.minCache.clear();
+    this.maxCache.clear();
+    this.histogramCache.clear();
   }
 
   /**

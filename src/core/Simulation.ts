@@ -104,6 +104,14 @@ export interface SimEventTraceEvent extends TraceEventBase {
 }
 
 /**
+ * Anything that collects statistics and can start over from the current
+ * time: Resource, Buffer, Store, Batch and Statistics register themselves.
+ */
+export interface StatisticsCollector {
+  resetStatistics(): void;
+}
+
+/**
  * Typed map of everything sim.on() can subscribe to.
  */
 export interface SimulationEvents {
@@ -253,6 +261,7 @@ export class Simulation {
   readonly random: Random;
 
   private processIdCounter = 0;
+  private readonly collectors = new Set<StatisticsCollector>();
 
   /**
    * Create a new simulation instance.
@@ -372,6 +381,31 @@ export class Simulation {
    */
   get processes(): ReadonlySet<Process> {
     return this.activeProcesses;
+  }
+
+  /**
+   * Reset the statistics of every resource, buffer, store, batch and
+   * Statistics instance created for this simulation, keeping their current
+   * state (units in use, levels, items, queues). Call it when the warm-up
+   * period ends so steady-state reports exclude the transient:
+   *
+   * @example
+   * ```typescript
+   * sim.schedule(1000, () => sim.resetStatistics()); // warm-up of 1000 time units
+   * sim.run(11_000);
+   * ```
+   */
+  resetStatistics(): void {
+    for (const collector of this.collectors) {
+      collector.resetStatistics();
+    }
+  }
+
+  /**
+   * @internal
+   */
+  _registerCollector(collector: StatisticsCollector): void {
+    this.collectors.add(collector);
   }
 
   /**
