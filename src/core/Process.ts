@@ -1,13 +1,7 @@
 import { Simulation } from './Simulation.js';
 import { ResourceRequest } from '../resources/Resource.js';
-import {
-  BufferPutRequest,
-  BufferGetRequest,
-} from '../resources/Buffer.js';
-import {
-  StorePutRequest,
-  StoreGetRequest,
-} from '../resources/Store.js';
+import { BufferPutRequest, BufferGetRequest } from '../resources/Buffer.js';
+import { StorePutRequest, StoreGetRequest } from '../resources/Store.js';
 import { SimEventRequest } from './SimEvent.js';
 import {
   ValidationError,
@@ -409,11 +403,7 @@ export class Process {
               this
             );
           } else if (yieldedValue instanceof StorePutRequest) {
-            yieldedValue.store._put(
-              yieldedValue.item,
-              () => this.step(),
-              this
-            );
+            yieldedValue.store._put(yieldedValue.item, () => this.step(), this);
           } else if (yieldedValue instanceof StoreGetRequest) {
             yieldedValue.store._get(
               yieldedValue.filter,
@@ -495,11 +485,7 @@ export class Process {
         );
       } else if (yieldedValue instanceof StorePutRequest) {
         // Put item into store and continue when space available
-        yieldedValue.store._put(
-          yieldedValue.item,
-          () => this.step(),
-          this
-        );
+        yieldedValue.store._put(yieldedValue.item, () => this.step(), this);
       } else if (yieldedValue instanceof StoreGetRequest) {
         // Get item from store and continue when item available
         yieldedValue.store._get(

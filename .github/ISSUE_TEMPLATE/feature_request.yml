@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose a new capability or API
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to model?
+      description: Describe the real-world situation or the code you cannot write today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: How would you like to write it? Pseudo-code is fine.
+      render: ts
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds or alternatives
+      description: How do you solve it now, or how does SimPy / another library do it?
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a pull request for this

@@ -58,9 +58,7 @@ describe('Store', () => {
 
     it('should reject empty name', () => {
       const sim = new Simulation();
-      expect(() => new Store(sim, 100, { name: '' })).toThrow(
-        ValidationError
-      );
+      expect(() => new Store(sim, 100, { name: '' })).toThrow(ValidationError);
     });
   });
 
@@ -363,9 +361,7 @@ describe('Store', () => {
       const store = new Store<any>(sim, 100);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-      expect(() => store.get('not a function' as any)).toThrow(
-        ValidationError
-      );
+      expect(() => store.get('not a function' as any)).toThrow(ValidationError);
     });
   });
 

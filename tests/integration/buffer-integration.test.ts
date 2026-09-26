@@ -373,9 +373,7 @@ describe('Buffer Integration Tests', () => {
       // Verify consistency
       expect(totalProduced).toBe(buffer.stats.totalAmountPut);
       expect(totalConsumed).toBe(buffer.stats.totalAmountGot);
-      expect(buffer.level).toBe(
-        500 + totalProduced - totalConsumed
-      );
+      expect(buffer.level).toBe(500 + totalProduced - totalConsumed);
     });
   });
 });

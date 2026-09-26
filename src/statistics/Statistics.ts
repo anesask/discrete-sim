@@ -113,10 +113,9 @@ export class Statistics {
   setWarmupPeriod(endTime: number): void {
     validateFinite(endTime, 'endTime', 'Warmup period must be a valid time');
     if (endTime < 0) {
-      throw new ValidationError(
-        'warmup period end time must be non-negative',
-        { endTime }
-      );
+      throw new ValidationError('warmup period end time must be non-negative', {
+        endTime,
+      });
     }
     this.warmupEndTime = endTime;
   }
@@ -763,14 +762,20 @@ export class Statistics {
     // Validate bins
     validateFinite(bins, 'bins', 'Number of bins must be a valid number');
     if (bins < 1) {
-      throw new ValidationError('Number of bins must be at least 1 (got ' + bins + ')', {
-        bins,
-      });
+      throw new ValidationError(
+        'Number of bins must be at least 1 (got ' + bins + ')',
+        {
+          bins,
+        }
+      );
     }
     if (!Number.isInteger(bins)) {
-      throw new ValidationError('Number of bins must be an integer (got ' + bins + ')', {
-        bins,
-      });
+      throw new ValidationError(
+        'Number of bins must be an integer (got ' + bins + ')',
+        {
+          bins,
+        }
+      );
     }
 
     const sampleData = this.samples.get(name);

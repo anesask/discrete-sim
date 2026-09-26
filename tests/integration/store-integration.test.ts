@@ -50,9 +50,15 @@ describe('Store Integration Tests', () => {
       }
 
       // Store 3 items
-      new Process(sim, () => storeItem({ id: 'P1', destination: 'NYC', weight: 100 })).start();
-      new Process(sim, () => storeItem({ id: 'P2', destination: 'LA', weight: 200 })).start();
-      new Process(sim, () => storeItem({ id: 'P3', destination: 'CHI', weight: 150 })).start();
+      new Process(sim, () =>
+        storeItem({ id: 'P1', destination: 'NYC', weight: 100 })
+      ).start();
+      new Process(sim, () =>
+        storeItem({ id: 'P2', destination: 'LA', weight: 200 })
+      ).start();
+      new Process(sim, () =>
+        storeItem({ id: 'P3', destination: 'CHI', weight: 150 })
+      ).start();
 
       // Retrieve 2 items
       sim.schedule(5, () => {
@@ -86,9 +92,15 @@ describe('Store Integration Tests', () => {
       }
 
       // Add items
-      new Process(sim, () => addItem({ id: 'P1', destination: 'NYC', weight: 100 })).start();
-      new Process(sim, () => addItem({ id: 'P2', destination: 'LA', weight: 200 })).start();
-      new Process(sim, () => addItem({ id: 'P3', destination: 'NYC', weight: 150 })).start();
+      new Process(sim, () =>
+        addItem({ id: 'P1', destination: 'NYC', weight: 100 })
+      ).start();
+      new Process(sim, () =>
+        addItem({ id: 'P2', destination: 'LA', weight: 200 })
+      ).start();
+      new Process(sim, () =>
+        addItem({ id: 'P3', destination: 'NYC', weight: 150 })
+      ).start();
 
       // Get NYC items
       sim.schedule(2, () => {
@@ -168,11 +180,21 @@ describe('Store Integration Tests', () => {
       }
 
       // Add tasks with different priorities
-      new Process(sim, () => addTask({ id: 1, priority: 1, duration: 1 })).start();
-      new Process(sim, () => addTask({ id: 2, priority: 2, duration: 2 })).start();
-      new Process(sim, () => addTask({ id: 3, priority: 1, duration: 1 })).start();
-      new Process(sim, () => addTask({ id: 4, priority: 3, duration: 3 })).start();
-      new Process(sim, () => addTask({ id: 5, priority: 2, duration: 2 })).start();
+      new Process(sim, () =>
+        addTask({ id: 1, priority: 1, duration: 1 })
+      ).start();
+      new Process(sim, () =>
+        addTask({ id: 2, priority: 2, duration: 2 })
+      ).start();
+      new Process(sim, () =>
+        addTask({ id: 3, priority: 1, duration: 1 })
+      ).start();
+      new Process(sim, () =>
+        addTask({ id: 4, priority: 3, duration: 3 })
+      ).start();
+      new Process(sim, () =>
+        addTask({ id: 5, priority: 2, duration: 2 })
+      ).start();
 
       // Start workers for each priority
       new Process(sim, () => worker(1)).start();
@@ -208,9 +230,15 @@ describe('Store Integration Tests', () => {
       }
 
       // Add pallets
-      new Process(sim, () => receive({ id: 'P1', destination: 'NYC', weight: 300 })).start();
-      new Process(sim, () => receive({ id: 'P2', destination: 'LA', weight: 500 })).start();
-      new Process(sim, () => receive({ id: 'P3', destination: 'CHI', weight: 200 })).start();
+      new Process(sim, () =>
+        receive({ id: 'P1', destination: 'NYC', weight: 300 })
+      ).start();
+      new Process(sim, () =>
+        receive({ id: 'P2', destination: 'LA', weight: 500 })
+      ).start();
+      new Process(sim, () =>
+        receive({ id: 'P3', destination: 'CHI', weight: 200 })
+      ).start();
 
       // Ship heaviest
       sim.schedule(2, () => {

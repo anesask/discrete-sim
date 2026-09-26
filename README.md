@@ -2,6 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/discrete-sim.svg?style=flat-square)](https://www.npmjs.com/package/discrete-sim)
 [![npm downloads](https://img.shields.io/npm/dm/discrete-sim.svg?style=flat-square)](https://www.npmjs.com/package/discrete-sim)
+[![CI](https://github.com/anesask/discrete-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/anesask/discrete-sim/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![GitHub issues](https://img.shields.io/github/issues/anesask/discrete-sim?style=flat-square&logo=github)](https://github.com/anesask/discrete-sim/issues)

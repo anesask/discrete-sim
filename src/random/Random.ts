@@ -199,10 +199,10 @@ export class Random {
   randint(min: number, max: number): number {
     // Validate bounds are finite
     if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      throw new ValidationError(
-        'min and max must be finite numbers',
-        { min, max }
-      );
+      throw new ValidationError('min and max must be finite numbers', {
+        min,
+        max,
+      });
     }
 
     if (min > max) {
