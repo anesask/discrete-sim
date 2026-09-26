@@ -4,7 +4,8 @@
     "src/**/*",
     "tests/unit/**/*",
     "tests/integration/**/*",
-    "tests/validation/**/*"
+    "tests/validation/**/*",
+    "tests/property/**/*"
   ],
   "exclude": [
     "node_modules",
