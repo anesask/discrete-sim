@@ -19,8 +19,10 @@ class Simulation {
   step(): boolean;
   reset(): void;
 
-  // Time
+  // Time and seed
   get now(): number;
+  get seed(): number;                 // effective randomSeed
+  readonly random: Random;            // generator seeded from randomSeed
 
   // Scheduling
   schedule(delay: number, callback: Function, priority?: number): string;
@@ -252,9 +254,14 @@ class Random {
   ): number;
   shuffle<T>(array: T[]): T[];
 
-  // Seed management
-  getSeed(): number;
+  // Seed, state and streams
+  getSeed(): number;                  // seed used to create/reseed
   setSeed(seed: number): void;
+  getState(): number[];
+  setState(state: readonly number[]): void;
+  stream(name: string): Random;       // independent, reproducible per name
+  spawn(): Random;                    // child seeded from current output
+  static randomSeed(): number;
 }
 ```
 

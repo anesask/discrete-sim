@@ -23,7 +23,8 @@ export interface EmpiricalOptions {
 
 /**
  * Seedable random number generator for discrete-event simulation.
- * Uses a Linear Congruential Generator (LCG) for reproducible random sequences.
+ * Core: xoshiro128** seeded via splitmix32 (period 2^128 - 1, 32-bit output),
+ * with named independent streams for separate sources of randomness.
  *
  * @example
  * ```typescript
@@ -38,12 +39,21 @@ export interface EmpiricalOptions {
  * const f = rng.weibull(1.5, 1000);   // Time to failure
  * ```
  */
+/** 32-bit rotate left */
+function rotl(x: number, k: number): number {
+  return ((x << k) | (x >>> (32 - k))) >>> 0;
+}
+
 export class Random {
-  private seed: number;
-  private readonly a = 1664525; // LCG multiplier
-  private readonly c = 1013904223; // LCG increment
-  private readonly m = 2 ** 32; // LCG modulus
-  private readonly maxSafeSeed = 2 ** 32 - 1; // Maximum safe seed value
+  /** Seed this generator was created or last reseeded with */
+  private seedValue: number;
+  /** xoshiro128** state */
+  private s0 = 0;
+  private s1 = 0;
+  private s2 = 0;
+  private s3 = 0;
+  private readonly maxSafeSeed = 2 ** 32 - 1; // Seeds are 32-bit unsigned integers
+  private streamCounter = 0;
 
   /** Sorted copies of arrays passed to empirical(), keyed by array identity. */
   private readonly sortedCache = new WeakMap<readonly number[], number[]>();
@@ -51,33 +61,41 @@ export class Random {
   /**
    * Create a new random number generator.
    *
-   * @param seed - Initial seed (default: current timestamp)
+   * @param seed - Integer seed in [0, 2^32 - 1] (default: random)
    *
    * @example
    * ```typescript
    * const rng1 = new Random(12345); // Seeded
-   * const rng2 = new Random();      // Random seed from timestamp
+   * const rng2 = new Random();      // Random seed
    * ```
    */
   constructor(seed?: number) {
-    // Use modulo to ensure timestamp fits within safe range
-    const initialSeed = seed ?? Date.now() % this.maxSafeSeed;
+    const initialSeed = seed ?? Random.randomSeed();
     this.validateSeed(initialSeed);
-    this.seed = initialSeed;
+    this.seedValue = initialSeed;
+    this.reseed(initialSeed);
   }
 
   /**
-   * Get the current seed value.
+   * A fresh random 32-bit seed, for unseeded generators and for printing so a
+   * run can be reproduced later.
+   */
+  static randomSeed(): number {
+    return Math.floor(Math.random() * 2 ** 32) >>> 0;
+  }
+
+  /**
+   * Get the seed this generator was created or last reseeded with.
+   * Pass it to `new Random(seed)` to reproduce the same sequence.
    *
-   * @returns Current seed
+   * @returns The seed
    */
   getSeed(): number {
-    return this.seed;
+    return this.seedValue;
   }
 
   /**
-   * Set a new seed value.
-   * Useful for restarting a sequence or changing randomness.
+   * Reseed the generator, restarting its sequence.
    *
    * @param seed - New seed value
    *
@@ -89,11 +107,94 @@ export class Random {
    */
   setSeed(seed: number): void {
     this.validateSeed(seed);
-    this.seed = seed;
+    this.seedValue = seed;
+    this.reseed(seed);
   }
 
   /**
-   * Validate seed value to prevent overflow and invalid values.
+   * Snapshot of the internal state, for saving and restoring a generator
+   * mid-run (for example to replay from a checkpoint).
+   */
+  getState(): number[] {
+    return [this.s0, this.s1, this.s2, this.s3, this.streamCounter];
+  }
+
+  /**
+   * Restore a state produced by getState().
+   */
+  setState(state: readonly number[]): void {
+    if (
+      state === null ||
+      typeof state !== 'object' ||
+      typeof (state as { length?: unknown }).length !== 'number' ||
+      state.length !== 5 ||
+      state.some((v) => !Number.isInteger(v) || v < 0 || v > 0xffffffff)
+    ) {
+      throw new ValidationError(
+        'state must be the 5-element array returned by getState()',
+        { state }
+      );
+    }
+    if (state[0] === 0 && state[1] === 0 && state[2] === 0 && state[3] === 0) {
+      throw new ValidationError('state must not be all zeros', { state });
+    }
+    [this.s0, this.s1, this.s2, this.s3] = [
+      state[0]!,
+      state[1]!,
+      state[2]!,
+      state[3]!,
+    ];
+    this.streamCounter = state[4]!;
+  }
+
+  /**
+   * An independent generator derived from this generator's seed and a name.
+   * The same seed and name always give the same stream, regardless of how
+   * many numbers were drawn from the parent. Use one stream per source of
+   * randomness (arrivals, service, routing) so that changing one part of a
+   * model does not shift the random numbers used by another, and so that
+   * common random numbers across scenarios line up.
+   *
+   * @param name - Stream name
+   *
+   * @example
+   * ```typescript
+   * const rng = new Random(42);
+   * const arrivals = rng.stream('arrivals');
+   * const service = rng.stream('service');
+   * ```
+   */
+  stream(name: string): Random {
+    if (typeof name !== 'string' || name.length === 0) {
+      throw new ValidationError('stream name must be a non-empty string', {
+        name,
+      });
+    }
+    let h = this.seedValue >>> 0;
+    for (let i = 0; i < name.length; i++) {
+      h = Math.imul(h ^ name.charCodeAt(i), 0x01000193) >>> 0;
+    }
+    h ^= h >>> 15;
+    h = Math.imul(h, 0x2c1b3c6d) >>> 0;
+    h ^= h >>> 12;
+    h = Math.imul(h, 0x297a2d39) >>> 0;
+    h ^= h >>> 15;
+    return new Random(h >>> 0);
+  }
+
+  /**
+   * A new generator seeded from this generator's current output. Deterministic
+   * given the parent's state, but unlike stream() it depends on how many
+   * numbers the parent has produced so far.
+   */
+  spawn(): Random {
+    const seed =
+      (this.nextUint32() ^ Math.imul(++this.streamCounter, 0x9e3779b9)) >>> 0;
+    return new Random(seed);
+  }
+
+  /**
+   * Validate seed value.
    * @param seed - Seed value to validate
    * @private
    */
@@ -121,28 +222,67 @@ export class Random {
 
     if (seed > this.maxSafeSeed) {
       throw new ValidationError(
-        `Seed exceeds maximum safe value of ${this.maxSafeSeed} (got ${seed}). Large seeds may cause overflow in LCG calculations.`,
+        `Seed exceeds maximum safe value of ${this.maxSafeSeed} (got ${seed}). Seeds are 32-bit unsigned integers.`,
         { seed, maxSafeSeed: this.maxSafeSeed }
       );
     }
   }
 
   /**
-   * Generate the next random value [0, 1) using LCG.
-   * This is the core PRNG that other methods build upon.
+   * Initialise the xoshiro128** state from a 32-bit seed using splitmix32,
+   * so that nearby seeds give unrelated states.
+   * @private
+   */
+  private reseed(seed: number): void {
+    let x = seed >>> 0;
+    const next = (): number => {
+      x = (x + 0x9e3779b9) >>> 0;
+      let z = x;
+      z = Math.imul(z ^ (z >>> 16), 0x21f0aaad) >>> 0;
+      z = Math.imul(z ^ (z >>> 15), 0x735a2d97) >>> 0;
+      return (z ^ (z >>> 15)) >>> 0;
+    };
+    this.s0 = next();
+    this.s1 = next();
+    this.s2 = next();
+    this.s3 = next();
+    if ((this.s0 | this.s1 | this.s2 | this.s3) === 0) {
+      this.s0 = 1; // xoshiro must not start from the all-zero state
+    }
+    this.streamCounter = 0;
+  }
+
+  /**
+   * Next 32-bit unsigned integer from xoshiro128**.
+   * @private
+   */
+  private nextUint32(): number {
+    const result = Math.imul(rotl(Math.imul(this.s1, 5) >>> 0, 7), 9) >>> 0;
+    const t = (this.s1 << 9) >>> 0;
+    this.s2 = (this.s2 ^ this.s0) >>> 0;
+    this.s3 = (this.s3 ^ this.s1) >>> 0;
+    this.s1 = (this.s1 ^ this.s2) >>> 0;
+    this.s0 = (this.s0 ^ this.s3) >>> 0;
+    this.s2 = (this.s2 ^ t) >>> 0;
+    this.s3 = rotl(this.s3, 11);
+    return result;
+  }
+
+  /**
+   * Generate the next random value in [0, 1) with 32 bits of resolution.
+   * This is the core the distributions build on.
    *
    * @returns Random value in [0, 1)
    * @private
    */
   private next(): number {
-    this.seed = (this.a * this.seed + this.c) % this.m;
-    return this.seed / this.m;
+    return this.nextUint32() / 4294967296;
   }
 
   /**
    * Generate the next random value in the open interval (0, 1).
    * Used by transforms that take a logarithm, where an exact 0 would produce
-   * Infinity or NaN. The LCG yields 0 exactly once per period, so this almost
+   * Infinity or NaN. Exact zeros occur once in 2^32 draws, so this almost
    * never loops.
    *
    * @private

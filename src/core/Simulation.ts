@@ -1,4 +1,5 @@
 import { EventQueue } from './EventQueue.js';
+import { Random } from '../random/Random.js';
 import {
   ValidationError,
   validateNonNegative,
@@ -162,6 +163,13 @@ export class Simulation {
   private traceConfig: TraceOptions;
 
   /**
+   * The simulation's random number generator, seeded from `randomSeed`.
+   * Draw from it directly or take named streams (`sim.random.stream('arrivals')`)
+   * so that each source of randomness is independent.
+   */
+  readonly random: Random;
+
+  /**
    * Create a new simulation instance.
    *
    * @param options - Configuration options for the simulation
@@ -178,9 +186,10 @@ export class Simulation {
   constructor(options: SimulationOptions = {}) {
     this.options = {
       initialTime: options.initialTime ?? 0,
-      randomSeed: options.randomSeed ?? Math.random(),
+      randomSeed: options.randomSeed ?? Random.randomSeed(),
       enableLogging: options.enableLogging ?? false,
     };
+    this.random = new Random(this.options.randomSeed);
 
     this.eventQueue = new EventQueue();
     this.currentTime = this.options.initialTime;
@@ -213,6 +222,15 @@ export class Simulation {
    */
   get now(): number {
     return this.currentTime;
+  }
+
+  /**
+   * The seed behind `sim.random`. Defined even when no `randomSeed` was
+   * given, so a run can print it and be reproduced with
+   * `new Simulation({ randomSeed: seed })`.
+   */
+  get seed(): number {
+    return this.options.randomSeed;
   }
 
   /**
@@ -719,6 +737,7 @@ export class Simulation {
 
     this.eventQueue.clear();
     this.currentTime = this.options.initialTime;
+    this.random.setSeed(this.options.randomSeed); // replay the same random sequence
     this.eventsProcessed = 0;
     // Note: Event handlers are preserved across resets
   }
