@@ -7,9 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Superseded pushes to a PR branch cancel the older run. Pushes to main always run to completion,
+# otherwise back-to-back merges show up as "cancelled" runs on the default branch.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -81,8 +83,8 @@ jobs:
 
   version-bump:
     name: Version bumped
-    # Dependency-update bots never bump the package version; the label check below covers humans.
-    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    # PRs that change only CI or repo config carry the 'no-bump' label instead of a version bump.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
