@@ -289,7 +289,7 @@ describe('SimEvent', () => {
       const proc = sim.process(function* () {
         try {
           yield event.wait();
-        } catch (error) {
+        } catch {
           wasInterrupted = true;
         }
       });

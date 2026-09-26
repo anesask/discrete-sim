@@ -91,7 +91,7 @@ export class EventQueue {
     }
 
     const root = this.heap[0];
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
     this.heap[0] = this.heap.pop()!;
     this.bubbleDown(0);
 
@@ -246,7 +246,6 @@ export class EventQueue {
    * @param index - Index of the element to bubble down
    */
   private bubbleDown(index: number): void {
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const leftChild = 2 * index + 1;
       const rightChild = 2 * index + 2;

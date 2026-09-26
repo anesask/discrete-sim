@@ -299,7 +299,7 @@ describe('Queue Disciplines', () => {
           serviceOrder.push(id);
           yield* timeout(5);
           server.release();
-        } catch (error) {
+        } catch {
           // Preempted
         }
       }
@@ -331,7 +331,7 @@ describe('Queue Disciplines', () => {
           serviceOrder.push(id);
           yield* timeout(5);
           server.release();
-        } catch (error) {
+        } catch {
           // Preempted
         }
       }
@@ -426,7 +426,7 @@ describe('Queue Disciplines', () => {
       const server = new Resource(sim, 1, { queueDiscipline: 'fifo' });
       const count = 1000;
 
-      function* customer(id: number) {
+      function* customer(_id: number) {
         yield server.request();
         yield* timeout(0.1);
         server.release();
@@ -447,7 +447,7 @@ describe('Queue Disciplines', () => {
       const server = new Resource(sim, 1, { queueDiscipline: 'priority' });
       const count = 500; // Smaller because priority queue has more overhead
 
-      function* customer(id: number) {
+      function* customer(_id: number) {
         yield server.request(Math.floor(Math.random() * 100));
         yield* timeout(0.1);
         server.release();

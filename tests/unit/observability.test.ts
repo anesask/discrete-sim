@@ -1,12 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  Simulation,
-  SimEvent,
-  Resource,
-  Buffer,
-  Store,
-  timeout,
-} from '../../src/index.js';
+import { Simulation, SimEvent, timeout } from '../../src/index.js';
 
 describe('Observability and Trace Mode', () => {
   let sim: Simulation;
