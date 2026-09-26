@@ -645,7 +645,77 @@ Event tracing is useful for:
 - Performance analysis
 - Verifying simulation correctness
 
+## Running Experiments
+
+One run is one sample path. `Experiment` (v0.1.16+) replicates a model with derived seeds and sweeps parameters, and reports confidence intervals across runs.
+
+```typescript
+import {
+  Experiment,
+  Simulation,
+  Resource,
+  Random,
+  Statistics,
+  timeout,
+} from 'discrete-sim';
+
+interface Params {
+  servers: number;
+  duration: number;
+}
+
+// The model factory builds and runs one simulation and returns flat numeric metrics.
+const experiment = new Experiment((p: Params, seed: number) => {
+  const sim = new Simulation();
+  const rng = new Random(seed);
+  const stats = new Statistics(sim);
+  stats.enableSampleTracking('wait');
+  const servers = new Resource(sim, p.servers);
+  // ... start arrival and service processes that record into stats ...
+  sim.run(p.duration);
+  return {
+    meanWait: stats.getSampleMean('wait'),
+    utilization: servers.utilization,
+  };
+});
+
+// 30 independent replications of one scenario
+const rep = experiment.replicate(
+  { servers: 2, duration: 10_000 },
+  { replications: 30, seed: 42 }
+);
+const ci = rep.confidenceInterval('meanWait'); // { mean, lower, upper, halfWidth, n, ... }
+rep.summary(); // every metric: mean, stdDev, min, max, ci
+rep.toCSV(); // one row per replication
+
+// Full-factorial sweep with common random numbers
+const sweep = experiment.sweep(
+  { servers: [1, 2, 3], duration: [10_000] },
+  {
+    replications: 20,
+    seed: 42,
+    onProgress: (done, total) => console.log(`${done}/${total}`),
+  }
+);
+console.table(sweep.compare('meanWait')); // mean and CI per scenario
+sweep.best('meanWait'); // scenario with the lowest mean wait
+```
+
+Seeds for replication `i` are derived from the base seed with a hash, so the whole experiment is reproducible and adjacent replications are not correlated. Replication `i` gets the same seed in every scenario of a sweep, which makes scenario comparisons sharper.
+
+See [`examples/experiment-mm1/`](examples/experiment-mm1/) for a complete run against queueing theory.
+
 ## Examples
+
+### Replicated M/M/c Experiment
+
+Thirty replications of an M/M/1 queue with a confidence interval next to the theoretical mean wait, then a sweep over the number of servers with common random numbers.
+
+```bash
+npx tsx examples/experiment-mm1/index.ts
+```
+
+[Full documentation](examples/experiment-mm1/README.md)
 
 ### Hospital Emergency Room (Priority Queues)
 
@@ -908,6 +978,54 @@ class Random {
   getSeed(): number;
   setSeed(seed: number): void;
 }
+```
+
+### Experiment
+
+```typescript
+class Experiment<P, M extends Record<string, number>> {
+  constructor(model: (params: P, seed: number, replication: number) => M);
+
+  run(params: P, seed: number, replication?: number): M;
+  replicate(params: P, options: ReplicationOptions): ReplicationResult<P, M>;
+  sweep(
+    space: { [K in keyof P]: P[K][] },
+    options: ReplicationOptions
+  ): SweepResult<P, M>;
+  static combinations<P>(space: { [K in keyof P]: P[K][] }): P[];
+}
+
+interface ReplicationOptions {
+  replications: number;
+  seed?: number; // default 12345
+  onProgress?: (done: number, total: number) => void;
+}
+
+class ReplicationResult<P, M> {
+  readonly params: P;
+  readonly runs: readonly M[];
+  readonly seeds: readonly number[];
+  get n(): number;
+  get metrics(): (keyof M & string)[];
+  values(metric): number[];
+  mean(metric): number;
+  stdDev(metric): number;
+  min(metric): number;
+  max(metric): number;
+  confidenceInterval(metric, confidence?): ConfidenceInterval;
+  summary(confidence?): Record<keyof M, MetricSummary>;
+  table(): Array<{ replication: number; seed: number } & M>;
+  toCSV(): string;
+}
+
+class SweepResult<P, M> {
+  readonly scenarios: readonly ReplicationResult<P, M>[];
+  compare(metric, confidence?): ComparisonRow<P>[];
+  best(metric, direction?: 'min' | 'max'): ReplicationResult<P, M>;
+  toCSV(): string;
+}
+
+function deriveSeed(base: number, index: number): number;
 ```
 
 ### ValidationError

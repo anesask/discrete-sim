@@ -298,6 +298,29 @@ yield* timeout(random.normal(10, 2));  // Mean 10, std dev 2
 yield* timeout(random.triangular(5, 15, 8));
 ```
 
+## One Run Is Not an Answer
+
+A simulation run uses random numbers, so its result is one draw from a distribution of possible outcomes. Two things make results trustworthy:
+
+1. **Report uncertainty.** After a run, ask for a confidence interval instead of a single number: `stats.getConfidenceInterval('wait-time')`. For quantities recorded inside one run (queue waits, inventory levels) use `stats.getBatchMeansCI(...)`, because consecutive observations are correlated.
+2. **Replicate.** Run the model several times with different seeds and compare scenarios on the replicated means. The `Experiment` class does the bookkeeping:
+
+```typescript
+const experiment = new Experiment((params, seed) => {
+  // build the model with new Simulation(), new Random(seed) ...
+  sim.run();
+  return { meanWait, utilization };
+});
+
+const result = experiment.replicate({ servers: 2 }, { replications: 30 });
+console.log(result.confidenceInterval('meanWait'));
+
+const sweep = experiment.sweep({ servers: [1, 2, 3] }, { replications: 20 });
+console.table(sweep.compare('meanWait'));
+```
+
+Rule of thumb: if two scenarios have overlapping intervals, you have not shown a difference yet. Add replications or run longer.
+
 ## Next Steps
 
 1. **Run examples**: Check the `/examples` folder for real-world scenarios
