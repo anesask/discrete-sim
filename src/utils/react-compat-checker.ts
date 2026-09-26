@@ -9,12 +9,17 @@
 
 let deprecationWarned = false;
 
+/** NODE_ENV when running under Node or a bundler that defines process; undefined in plain browsers */
+function nodeEnv(): string | undefined {
+  return typeof process !== 'undefined' ? process.env?.NODE_ENV : undefined;
+}
+
 /**
  * Emit the deprecation notice once per process, outside test and production runs.
  */
 function warnDeprecatedOnce(): void {
   if (deprecationWarned) return;
-  const env = process.env.NODE_ENV;
+  const env = nodeEnv();
   if (env === 'production' || env === 'test') return;
   deprecationWarned = true;
   console.warn(
@@ -127,7 +132,7 @@ export function warnReactCompatibilityIssues(
 ): void {
   warnDeprecatedOnce();
 
-  if (process.env.NODE_ENV === 'production') return;
+  if (nodeEnv() === 'production') return;
 
   const analysis = analyzeExportsForReact(exports);
 
@@ -155,7 +160,7 @@ export function withReactCompatCheck<T extends Record<string, unknown>>(
 ): T {
   warnDeprecatedOnce();
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (nodeEnv() !== 'production') {
     warnReactCompatibilityIssues(moduleName, exports);
   }
   return exports;

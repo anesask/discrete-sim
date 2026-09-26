@@ -28,11 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Package exports** ([#70](https://github.com/anesask/discrete-sim/issues/70)): the `exports` map now declares types per condition (`index.d.mts` for `import`, `index.d.ts` for `require`). Before, ESM consumers under `moduleResolution: node16` resolved CommonJS typings for an ESM file ("masquerading as CJS"). `"type": "commonjs"` is declared explicitly.
+- The deprecated React Fast Refresh checker read `process.env.NODE_ENV` unguarded, which throws in a plain browser; it now checks that `process` exists.
 - `sim.on()` now accepts the trace event names (`trace:resource`, `trace:process`, `trace:simevent`) in its type; they worked at runtime but did not type-check.
 - `new Simulation({ randomSeed })` was stored and never used; it now seeds `sim.random`.
 
 ### Internal
 
+- **Package correctness checks in CI** ([#70](https://github.com/anesask/discrete-sim/issues/70)): `publint` and `@arethetypeswrong/cli` validate the packed tarball, and `scripts/browser-smoke.mjs` loads the built bundle in a bare context without Node globals and runs a model that touches every building block plus the async and real-time drivers. `npm run check:package` runs all three locally.
 - **Hot-path pass** ([#58](https://github.com/anesask/discrete-sim/issues/58)): every yieldable carries a numeric `kind` and the scheduler switches on it instead of running an `instanceof` chain; trace payloads and log objects are no longer built when tracing or logging is off; scheduled events are created without an object spread. Measured best-of-three on the benchmark suite against the previous commit: event queue 1.10x, scheduled events 1.18x, M/M/1 1.10x, 10k concurrent processes 1.24x, priority queue with 10k waiters 1.36x; statistics and random unchanged. A CPU profile of M/M/1 now shows garbage collection from per-yield closures and the process registry as the remaining cost. `benchmarks/baseline.json` updated.
 - **Property-based tests** ([#57](https://github.com/anesask/discrete-sim/issues/57)) with fast-check under `tests/property/`, run by `npm test`: event ordering for arbitrary schedules; resource unit conservation and clean queues under random programs of requests, holds, patience timeouts (anyOf) and interrupts; Buffer, Store and Batch conservation; identical traces for identical seeds; distinct random streams. Failures print the fast-check seed for replay.
 - **Benchmark suite** ([#14](https://github.com/anesask/discrete-sim/issues/14)): `npm run bench` runs seven representative workloads (event queue, scheduled events, M/M/1, concurrent processes, priority queue, statistics, random) and writes `benchmarks/latest.json`; `benchmarks/baseline.json` records the reference numbers. The timing suites left the default test run earlier (`npm run test:perf`).
