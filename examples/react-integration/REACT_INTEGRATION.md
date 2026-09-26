@@ -52,10 +52,13 @@ export function use() { ... }     // Incomplete
 
 ### Using the Compatibility Checker
 
-The library provides a compatibility checker to help identify potential issues:
+A small compatibility checker lives next to this document as
+[`react-compat-checker.ts`](./react-compat-checker.ts). Copy it into your project
+to get development-time warnings. (The copy exported from the `discrete-sim`
+package is deprecated and will be removed in v0.3.0.)
 
 ```tsx
-import { withReactCompatCheck } from 'discrete-sim/utils/react-compat-checker';
+import { withReactCompatCheck } from './react-compat-checker';
 
 // Wrap your exports to get warnings in development
 export default withReactCompatCheck('SimulationContext', {

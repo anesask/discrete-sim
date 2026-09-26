@@ -1,32 +1,11 @@
 /**
- * React Fast Refresh Compatibility Checker
+ * React Fast Refresh Compatibility Checker (standalone copy)
  *
- * @deprecated This module is unrelated to discrete-event simulation and will be
- * removed from the public API in v0.3.0. A standalone copy lives in
- * `examples/react-integration/react-compat-checker.ts`; copy it into your own
- * project if you rely on it.
+ * This used to ship inside the discrete-sim package. It has nothing to do with
+ * discrete-event simulation, so it now lives here as an example utility. Copy
+ * this file into your React project if you want the checks.
  */
 
-let deprecationWarned = false;
-
-/**
- * Emit the deprecation notice once per process, outside test and production runs.
- */
-function warnDeprecatedOnce(): void {
-  if (deprecationWarned) return;
-  const env = process.env.NODE_ENV;
-  if (env === 'production' || env === 'test') return;
-  deprecationWarned = true;
-  console.warn(
-    '[discrete-sim] analyzeExportsForReact, warnReactCompatibilityIssues and withReactCompatCheck ' +
-      'are deprecated and will be removed in v0.3.0. Copy examples/react-integration/react-compat-checker.ts ' +
-      'into your project instead.'
-  );
-}
-
-/**
- * @deprecated Will be removed in v0.3.0. See module notice.
- */
 export interface ExportAnalysis {
   hasDefaultExport: boolean;
   namedExports: string[];
@@ -37,14 +16,10 @@ export interface ExportAnalysis {
 
 /**
  * Analyzes module exports for React Fast Refresh compatibility issues
- *
- * @deprecated Will be removed in v0.3.0. See module notice.
  */
 export function analyzeExportsForReact(
   exports: Record<string, unknown>
 ): ExportAnalysis {
-  warnDeprecatedOnce();
-
   const analysis: ExportAnalysis = {
     hasDefaultExport: false,
     namedExports: [],
@@ -53,22 +28,17 @@ export function analyzeExportsForReact(
     issues: [],
   };
 
-  // Check for default export
   if ('default' in exports) {
     analysis.hasDefaultExport = true;
   }
 
-  // Analyze named exports
   Object.keys(exports).forEach((exportName) => {
     if (exportName === 'default') return;
 
     analysis.namedExports.push(exportName);
 
-    // Identify hooks (start with 'use')
     if (exportName.startsWith('use')) {
       analysis.hooks.push(exportName);
-
-      // Check for incomplete hook names
       if (exportName.length <= 4) {
         analysis.issues.push(
           `Hook "${exportName}" has an incomplete name which may cause Fast Refresh issues`
@@ -76,13 +46,11 @@ export function analyzeExportsForReact(
       }
     }
 
-    // Identify components (PascalCase)
     if (/^[A-Z]/.test(exportName)) {
       analysis.components.push(exportName);
     }
   });
 
-  // Check for problematic patterns
   if (analysis.hasDefaultExport && analysis.hooks.length > 0) {
     analysis.issues.push(
       'Mixing default exports with React hooks can cause Fast Refresh issues. ' +
@@ -97,7 +65,6 @@ export function analyzeExportsForReact(
     );
   }
 
-  // Check for mixed component and non-component exports
   const hasNonReactExports = analysis.namedExports.some(
     (name) =>
       !analysis.hooks.includes(name) && !analysis.components.includes(name)
@@ -117,27 +84,19 @@ export function analyzeExportsForReact(
 }
 
 /**
- * Logs warnings for React Fast Refresh compatibility issues
- *
- * @deprecated Will be removed in v0.3.0. See module notice.
+ * Logs warnings for React Fast Refresh compatibility issues (development only)
  */
 export function warnReactCompatibilityIssues(
   moduleName: string,
   exports: Record<string, unknown>
 ): void {
-  warnDeprecatedOnce();
-
   if (process.env.NODE_ENV === 'production') return;
 
   const analysis = analyzeExportsForReact(exports);
 
   if (analysis.issues.length > 0) {
-    console.warn(
-      `[discrete-sim] React Fast Refresh warnings for "${moduleName}":`
-    );
-    analysis.issues.forEach((issue) => {
-      console.warn(`${issue}`);
-    });
+    console.warn(`React Fast Refresh warnings for "${moduleName}":`);
+    analysis.issues.forEach((issue) => console.warn(issue));
     console.warn(
       'See: https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports'
     );
@@ -145,16 +104,12 @@ export function warnReactCompatibilityIssues(
 }
 
 /**
- * Higher-order function to wrap React module exports with compatibility checking
- *
- * @deprecated Will be removed in v0.3.0. See module notice.
+ * Wrap a module's exports to get compatibility warnings in development
  */
 export function withReactCompatCheck<T extends Record<string, unknown>>(
   moduleName: string,
   exports: T
 ): T {
-  warnDeprecatedOnce();
-
   if (process.env.NODE_ENV !== 'production') {
     warnReactCompatibilityIssues(moduleName, exports);
   }

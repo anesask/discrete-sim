@@ -409,3 +409,44 @@ describe('ReactCompatChecker', () => {
     });
   });
 });
+
+describe('deprecation notice', () => {
+  const originalEnv = process.env.NODE_ENV;
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalEnv;
+    vi.resetModules();
+  });
+
+  it('warns once per process outside test and production environments', async () => {
+    // Fresh module instance so the once-only flag starts unset regardless of test order.
+    vi.resetModules();
+    process.env.NODE_ENV = 'development';
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fresh = await import('../../src/utils/react-compat-checker.js');
+
+    fresh.analyzeExportsForReact({ useThing: () => {} });
+    fresh.analyzeExportsForReact({ useOther: () => {} });
+    fresh.withReactCompatCheck('Module', { useThing: () => {} });
+
+    const deprecationCalls = warnSpy.mock.calls.filter((call) =>
+      String(call[0]).includes('deprecated')
+    );
+    expect(deprecationCalls).toHaveLength(1);
+    expect(String(deprecationCalls[0]![0])).toContain('v0.3.0');
+
+    warnSpy.mockRestore();
+  });
+
+  it('stays silent when NODE_ENV is test', async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = 'test';
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fresh = await import('../../src/utils/react-compat-checker.js');
+
+    fresh.analyzeExportsForReact({ useThing: () => {} });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+});
