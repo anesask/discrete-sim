@@ -93,7 +93,7 @@ function* receivePallet(
   };
 
   console.log(
-    `[${sim.now.toFixed(2)}h] 📦 RECEIVING: Pallet ${pallet.id} for ${pallet.destination} (${weight}kg, Priority ${pallet.priority})`
+    `[${sim.now.toFixed(2)}h] RECEIVING: Pallet ${pallet.id} for ${pallet.destination} (${weight}kg, Priority ${pallet.priority})`
   );
 
   // Wait for forklift
@@ -107,7 +107,7 @@ function* receivePallet(
   yield warehouse.put(pallet, pallet.priority);
 
   console.log(
-    `[${sim.now.toFixed(2)}h] ✓ STORED: Pallet ${pallet.id} (warehouse: ${warehouse.size}/${warehouse.capacity})`
+    `[${sim.now.toFixed(2)}h] [OK] STORED: Pallet ${pallet.id} (warehouse: ${warehouse.size}/${warehouse.capacity})`
   );
 
   forklift.release();
@@ -122,9 +122,7 @@ function* shipFIFO(
   warehouse: Store<Pallet>,
   forklift: Resource
 ): Generator {
-  console.log(
-    `[${sim.now.toFixed(2)}h] 🚚 SHIP-FIFO: Waiting for any pallet...`
-  );
+  console.log(`[${sim.now.toFixed(2)}h] SHIP-FIFO: Waiting for any pallet...`);
 
   // Wait for forklift
   yield forklift.request();
@@ -137,14 +135,14 @@ function* shipFIFO(
   const waitTime = sim.now - pallet.receivedAt;
 
   console.log(
-    `[${sim.now.toFixed(2)}h] 📤 SHIPPING: Pallet ${pallet.id} to ${pallet.destination} (waited ${(waitTime * 60).toFixed(1)}min, warehouse: ${warehouse.size}/${warehouse.capacity})`
+    `[${sim.now.toFixed(2)}h] SHIPPING: Pallet ${pallet.id} to ${pallet.destination} (waited ${(waitTime * 60).toFixed(1)}min, warehouse: ${warehouse.size}/${warehouse.capacity})`
   );
 
   // Shipping time
   yield* timeout(SHIPPING_TIME);
 
   console.log(
-    `[${sim.now.toFixed(2)}h] ✓ SHIPPED: Pallet ${pallet.id} (FIFO #${shipmentId})`
+    `[${sim.now.toFixed(2)}h] [OK] SHIPPED: Pallet ${pallet.id} (FIFO #${shipmentId})`
   );
 
   forklift.release();
@@ -160,7 +158,7 @@ function* shipPriority(
   targetPriority: number
 ): Generator {
   console.log(
-    `[${sim.now.toFixed(2)}h] 🚚 PRIORITY-SHIP: Waiting for priority ${targetPriority} pallet...`
+    `[${sim.now.toFixed(2)}h] PRIORITY-SHIP: Waiting for priority ${targetPriority} pallet...`
   );
 
   // Wait for forklift
@@ -174,14 +172,14 @@ function* shipPriority(
   const waitTime = sim.now - pallet.receivedAt;
 
   console.log(
-    `[${sim.now.toFixed(2)}h] 🔥 PRIORITY: Shipping ${pallet.id} to ${pallet.destination} (P${pallet.priority}, waited ${(waitTime * 60).toFixed(1)}min)`
+    `[${sim.now.toFixed(2)}h] PRIORITY: Shipping ${pallet.id} to ${pallet.destination} (P${pallet.priority}, waited ${(waitTime * 60).toFixed(1)}min)`
   );
 
   // Faster shipping for priority
   yield* timeout(SHIPPING_TIME * 0.8);
 
   console.log(
-    `[${sim.now.toFixed(2)}h] ✓ PRIORITY-SHIPPED: Pallet ${pallet.id}`
+    `[${sim.now.toFixed(2)}h] [OK] PRIORITY-SHIPPED: Pallet ${pallet.id}`
   );
 
   forklift.release();
@@ -197,7 +195,7 @@ function* shipToDestination(
   destination: string
 ): Generator {
   console.log(
-    `[${sim.now.toFixed(2)}h] 🚚 DEST-SHIP: Waiting for ${destination} pallet...`
+    `[${sim.now.toFixed(2)}h] DEST-SHIP: Waiting for ${destination} pallet...`
   );
 
   // Wait for forklift
@@ -211,13 +209,13 @@ function* shipToDestination(
   const waitTime = sim.now - pallet.receivedAt;
 
   console.log(
-    `[${sim.now.toFixed(2)}h] 🎯 DEST: Shipping ${pallet.id} to ${destination} (waited ${(waitTime * 60).toFixed(1)}min)`
+    `[${sim.now.toFixed(2)}h] DEST: Shipping ${pallet.id} to ${destination} (waited ${(waitTime * 60).toFixed(1)}min)`
   );
 
   yield* timeout(SHIPPING_TIME);
 
   console.log(
-    `[${sim.now.toFixed(2)}h] ✓ DEST-SHIPPED: Pallet ${pallet.id} to ${destination}`
+    `[${sim.now.toFixed(2)}h] [OK] DEST-SHIPPED: Pallet ${pallet.id} to ${destination}`
   );
 
   forklift.release();
@@ -283,7 +281,7 @@ function* priorityShippingScheduler(
 
     if (priority1Count > 0) {
       console.log(
-        `\n[${sim.now.toFixed(2)}h] ⚡ PRIORITY BATCH: Found ${priority1Count} priority 1 items\n`
+        `\n[${sim.now.toFixed(2)}h] PRIORITY BATCH: Found ${priority1Count} priority 1 items\n`
       );
 
       for (let i = 0; i < priority1Count; i++) {
@@ -317,7 +315,7 @@ function* destinationRoutes(
 
     if (destCount > 0) {
       console.log(
-        `\n[${sim.now.toFixed(2)}h] 🚛 ${route.destination} ROUTE: ${destCount} pallets ready\n`
+        `\n[${sim.now.toFixed(2)}h] ${route.destination} ROUTE: ${destCount} pallets ready\n`
       );
 
       // Ship up to 5 pallets per route
@@ -347,7 +345,7 @@ function printStatistics(
   console.log('='.repeat(70));
   console.log(`Simulation Duration: ${SIMULATION_HOURS} hours`);
 
-  console.log(`\n${'─'.repeat(70)}\nWAREHOUSE OPERATIONS\n${'─'.repeat(70)}`);
+  console.log(`\n${'-'.repeat(70)}\nWAREHOUSE OPERATIONS\n${'-'.repeat(70)}`);
   console.log(`Warehouse Capacity: ${warehouse.capacity} pallets`);
   console.log(`Final Inventory: ${warehouse.size} pallets`);
   console.log(`\nTotal Pallets Received: ${warehouseStats.totalPuts}`);
@@ -356,7 +354,7 @@ function printStatistics(
     `Net Flow: ${warehouseStats.totalPuts - warehouseStats.totalGets} pallets`
   );
 
-  console.log(`\n${'─'.repeat(70)}\nPERFORMANCE METRICS\n${'─'.repeat(70)}`);
+  console.log(`\n${'-'.repeat(70)}\nPERFORMANCE METRICS\n${'-'.repeat(70)}`);
   console.log(
     `Average Warehouse Occupancy: ${warehouseStats.averageSize.toFixed(1)} pallets (${((warehouseStats.averageSize / warehouse.capacity) * 100).toFixed(1)}%)`
   );
@@ -367,7 +365,7 @@ function printStatistics(
     `Average Shipping Wait: ${(warehouseStats.averageGetWaitTime * 60).toFixed(2)} minutes`
   );
 
-  console.log(`\n${'─'.repeat(70)}\nQUEUE STATISTICS\n${'─'.repeat(70)}`);
+  console.log(`\n${'-'.repeat(70)}\nQUEUE STATISTICS\n${'-'.repeat(70)}`);
   console.log(
     `Average Receiving Queue: ${warehouseStats.averagePutQueueLength.toFixed(2)}`
   );
@@ -375,7 +373,7 @@ function printStatistics(
     `Average Shipping Queue: ${warehouseStats.averageGetQueueLength.toFixed(2)}`
   );
 
-  console.log(`\n${'─'.repeat(70)}\nFORKLIFT UTILIZATION\n${'─'.repeat(70)}`);
+  console.log(`\n${'-'.repeat(70)}\nFORKLIFT UTILIZATION\n${'-'.repeat(70)}`);
   console.log(`Number of Forklifts: ${forklift.capacity}`);
   console.log(
     `Forklift Utilization: ${(forkliftStats.utilizationRate * 100).toFixed(1)}%`
@@ -385,7 +383,7 @@ function printStatistics(
     `Average Wait for Forklift: ${(forkliftStats.averageWaitTime * 60).toFixed(2)} minutes`
   );
 
-  console.log(`\n${'─'.repeat(70)}\nINVENTORY BREAKDOWN\n${'─'.repeat(70)}`);
+  console.log(`\n${'-'.repeat(70)}\nINVENTORY BREAKDOWN\n${'-'.repeat(70)}`);
   const remaining = warehouse.items;
   const byDestination = new Map<string, number>();
 
