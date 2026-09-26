@@ -112,3 +112,53 @@ npx tsx examples/bank-tellers/index.ts
 - Automated staffing recommendations
 
 [Full documentation](../examples/bank-tellers/README.md)
+
+### Bank Express Lane (Priority Queue)
+
+Express customers are served before regular ones whenever both wait, on a single `Resource` with a priority queue. Shows what an express lane costs the other customers.
+
+```bash
+npx tsx examples/bank-express-lane/index.ts
+```
+
+[Full documentation](../examples/bank-express-lane/README.md)
+
+### Emergency Department with Preemption
+
+Critical patients take the doctor away from lower-priority treatments in progress; the interrupted process handles `PreemptionError` and resumes later.
+
+```bash
+npx tsx examples/hospital-emergency/index.ts
+```
+
+[Full documentation](../examples/hospital-emergency/README.md)
+
+### Traffic Light (SimEvent)
+
+Cars wait for a green light broadcast with `SimEvent`; the controller cycles the light with `trigger()` and `reset()`.
+
+```bash
+npx tsx examples/traffic-light/index.ts
+```
+
+[Full documentation](../examples/traffic-light/README.md)
+
+### Fuel Station (Buffer)
+
+Trucks draw fuel from a tank modelled as a `Buffer`; tanker deliveries refill it. Shows blocking get and put on a continuous quantity.
+
+```bash
+npx tsx examples/fuel-station/index.ts
+```
+
+[Full documentation](../examples/fuel-station/README.md)
+
+### Warehouse Store (Store with Filters)
+
+Pallets are stored and retrieved by destination with filtered `Store.get()`; deliveries use a priority put queue when the warehouse is full.
+
+```bash
+npx tsx examples/warehouse-store/index.ts
+```
+
+[Full documentation](../examples/warehouse-store/README.md)
