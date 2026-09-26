@@ -245,7 +245,11 @@ export class SimEvent {
    * Called by Process when it yields an SimEventRequest.
    * @internal
    */
-  _addWaiter(callback: () => void, process: Process, request: SimEventRequest): void {
+  _addWaiter(
+    callback: () => void,
+    process: Process,
+    request: SimEventRequest
+  ): void {
     if (this.triggered) {
       // Event already triggered, resume immediately
       request.value = this.triggerValue;

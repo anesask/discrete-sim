@@ -36,8 +36,12 @@ describe('Scalability Tests', () => {
 
       console.log('Sequential scaling:');
       console.log(`  100 events: ${times[0].toFixed(2)}ms`);
-      console.log(`  200 events: ${times[1].toFixed(2)}ms (${ratio1.toFixed(2)}x)`);
-      console.log(`  400 events: ${times[2].toFixed(2)}ms (${ratio2.toFixed(2)}x)`);
+      console.log(
+        `  200 events: ${times[1].toFixed(2)}ms (${ratio1.toFixed(2)}x)`
+      );
+      console.log(
+        `  400 events: ${times[2].toFixed(2)}ms (${ratio2.toFixed(2)}x)`
+      );
 
       // Should scale approximately linearly (very relaxed for timing variance)
       // When operations are extremely fast, timing noise can cause ratios < 1
@@ -240,13 +244,18 @@ describe('Scalability Tests', () => {
       const perNumber = times.map((t, i) => t / counts[i]);
 
       console.log('Random number generation:');
-      console.log(`  1K numbers: ${times[0].toFixed(2)}ms (${perNumber[0].toFixed(4)}ms each)`);
-      console.log(`  10K numbers: ${times[1].toFixed(2)}ms (${perNumber[1].toFixed(4)}ms each)`);
-      console.log(`  100K numbers: ${times[2].toFixed(2)}ms (${perNumber[2].toFixed(4)}ms each)`);
+      console.log(
+        `  1K numbers: ${times[0].toFixed(2)}ms (${perNumber[0].toFixed(4)}ms each)`
+      );
+      console.log(
+        `  10K numbers: ${times[1].toFixed(2)}ms (${perNumber[1].toFixed(4)}ms each)`
+      );
+      console.log(
+        `  100K numbers: ${times[2].toFixed(2)}ms (${perNumber[2].toFixed(4)}ms each)`
+      );
 
       // Per-number time should be roughly constant
-      const variance =
-        Math.max(...perNumber) / Math.min(...perNumber);
+      const variance = Math.max(...perNumber) / Math.min(...perNumber);
 
       expect(variance).toBeLessThan(50); // Very relaxed for timing variance, system load, and Windows scheduler
     });

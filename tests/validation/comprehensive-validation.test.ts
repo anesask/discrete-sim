@@ -473,7 +473,9 @@ describe('Comprehensive Validation Tests', () => {
       ).not.toThrow();
 
       // Special characters
-      expect(() => new Resource(sim, 1, { name: 'res-123_ABC!@#$' })).not.toThrow();
+      expect(
+        () => new Resource(sim, 1, { name: 'res-123_ABC!@#$' })
+      ).not.toThrow();
 
       // Emojis
       expect(() => new Resource(sim, 1, { name: '🚀' })).not.toThrow();

@@ -274,10 +274,10 @@ describe('Queue Disciplines', () => {
 
       sim.process(function* () {
         yield* timeout(1);
-        sim.process(() => customer(1, 0));    // Normal priority
-        sim.process(() => customer(2, -10));  // Very high priority
-        sim.process(() => customer(3, 10));   // Low priority
-        sim.process(() => customer(4, -5));   // High priority
+        sim.process(() => customer(1, 0)); // Normal priority
+        sim.process(() => customer(2, -10)); // Very high priority
+        sim.process(() => customer(3, 10)); // Low priority
+        sim.process(() => customer(4, -5)); // High priority
       });
 
       sim.run();
@@ -304,11 +304,11 @@ describe('Queue Disciplines', () => {
         }
       }
 
-      sim.process(() => customer(1, 10));  // Low priority, starts first
+      sim.process(() => customer(1, 10)); // Low priority, starts first
 
       sim.process(function* () {
         yield* timeout(1);
-        sim.process(() => customer(2, 1));  // High priority, should preempt
+        sim.process(() => customer(2, 1)); // High priority, should preempt
       });
 
       sim.run();
@@ -336,11 +336,11 @@ describe('Queue Disciplines', () => {
         }
       }
 
-      sim.process(() => customer(1, 10));  // Low priority
+      sim.process(() => customer(1, 10)); // Low priority
 
       sim.process(function* () {
         yield* timeout(1);
-        sim.process(() => customer(2, 1));  // High priority
+        sim.process(() => customer(2, 1)); // High priority
       });
 
       sim.run();
@@ -372,11 +372,11 @@ describe('Queue Disciplines', () => {
       });
 
       // Customers arrive at different times with different priorities
-      sim.process(() => customer(1, 1, 5));   // t=1, p=5
-      sim.process(() => customer(2, 2, 3));   // t=2, p=3 (higher)
-      sim.process(() => customer(3, 3, 5));   // t=3, p=5 (same as 1)
-      sim.process(() => customer(4, 4, 1));   // t=4, p=1 (highest)
-      sim.process(() => customer(5, 5, 10));  // t=5, p=10 (lowest)
+      sim.process(() => customer(1, 1, 5)); // t=1, p=5
+      sim.process(() => customer(2, 2, 3)); // t=2, p=3 (higher)
+      sim.process(() => customer(3, 3, 5)); // t=3, p=5 (same as 1)
+      sim.process(() => customer(4, 4, 1)); // t=4, p=1 (highest)
+      sim.process(() => customer(5, 5, 10)); // t=5, p=10 (lowest)
 
       sim.run();
 
@@ -387,28 +387,36 @@ describe('Queue Disciplines', () => {
 
   describe('Queue Discipline Configuration Validation', () => {
     it('should accept string queue discipline', () => {
-      expect(() => new Resource(sim, 1, { queueDiscipline: 'fifo' })).not.toThrow();
-      expect(() => new Resource(sim, 1, { queueDiscipline: 'lifo' })).not.toThrow();
-      expect(() => new Resource(sim, 1, { queueDiscipline: 'priority' })).not.toThrow();
+      expect(
+        () => new Resource(sim, 1, { queueDiscipline: 'fifo' })
+      ).not.toThrow();
+      expect(
+        () => new Resource(sim, 1, { queueDiscipline: 'lifo' })
+      ).not.toThrow();
+      expect(
+        () => new Resource(sim, 1, { queueDiscipline: 'priority' })
+      ).not.toThrow();
     });
 
     it('should accept object queue discipline configuration', () => {
-      expect(() =>
-        new Resource(sim, 1, {
-          queueDiscipline: { type: 'priority', tieBreaker: 'fifo' },
-        })
+      expect(
+        () =>
+          new Resource(sim, 1, {
+            queueDiscipline: { type: 'priority', tieBreaker: 'fifo' },
+          })
       ).not.toThrow();
 
-      expect(() =>
-        new Resource(sim, 1, {
-          queueDiscipline: { type: 'priority', tieBreaker: 'lifo' },
-        })
+      expect(
+        () =>
+          new Resource(sim, 1, {
+            queueDiscipline: { type: 'priority', tieBreaker: 'lifo' },
+          })
       ).not.toThrow();
     });
 
     it('should reject invalid queue discipline', () => {
-      expect(() =>
-        new Resource(sim, 1, { queueDiscipline: 'invalid' as any })
+      expect(
+        () => new Resource(sim, 1, { queueDiscipline: 'invalid' as any })
       ).toThrow(/Invalid queue discipline/);
     });
   });

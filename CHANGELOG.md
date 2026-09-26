@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.10] - 2026-09-26
+
+### Internal
+
+- **Continuous integration** ([#2](https://github.com/anesask/discrete-sim/issues/2)): GitHub Actions workflow runs typecheck, lint, format check, tests, build and an examples smoke run on Node 20, 22 and 24 for every push and pull request, plus a coverage job.
+- **Version bump check**: pull requests must bump `package.json` and add a matching CHANGELOG section, or carry the `no-bump` label.
+- **Release workflow**: pushing a `v*.*.*` tag verifies the version, publishes to npm with provenance and creates a GitHub release from the CHANGELOG section.
+- Issue templates (bug report, feature request), pull request template and Dependabot configuration.
+
 ## [0.1.9] - 2026-09-26
 
 ### Fixed

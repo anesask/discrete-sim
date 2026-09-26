@@ -119,8 +119,10 @@ describe('Basic Benchmarks', () => {
       // Check that lower priority numbers were generally served first
       const firstHalf = priorities.slice(0, 10);
       const secondHalf = priorities.slice(10);
-      const avgFirstHalf = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-      const avgSecondHalf = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+      const avgFirstHalf =
+        firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+      const avgSecondHalf =
+        secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
 
       // Lower priorities (smaller numbers) should be served first on average
       expect(avgFirstHalf).toBeLessThanOrEqual(avgSecondHalf);

@@ -7,8 +7,8 @@
  * Queue discipline enumeration
  */
 export type QueueDiscipline =
-  | 'fifo'     // First In First Out (default)
-  | 'lifo'     // Last In First Out
+  | 'fifo' // First In First Out (default)
+  | 'lifo' // Last In First Out
   | 'priority'; // Priority-based (lower number = higher priority)
 
 /**

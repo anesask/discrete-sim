@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { Simulation, Resource, Statistics, Random, EventQueue } from '../../src/index.js';
+import {
+  Simulation,
+  Resource,
+  Statistics,
+  Random,
+  EventQueue,
+} from '../../src/index.js';
 import * as timeout from '../../src/core/Process.js';
 import type { ProcessGenerator } from '../../src/core/Process.js';
 
@@ -33,7 +39,9 @@ describe('Stress Tests', () => {
       const endTime = performance.now();
       const elapsed = endTime - startTime;
 
-      console.log(`Stress test: 1000 processes completed in ${elapsed.toFixed(2)}ms`);
+      console.log(
+        `Stress test: 1000 processes completed in ${elapsed.toFixed(2)}ms`
+      );
       console.log(`Events processed: ${result.eventsProcessed}`);
       console.log(`Processes completed: ${completed}`);
 
@@ -71,7 +79,9 @@ describe('Stress Tests', () => {
       const endTime = performance.now();
       const elapsed = endTime - startTime;
 
-      console.log(`Deep nesting: ${leafProcesses} leaf processes in ${elapsed.toFixed(2)}ms`);
+      console.log(
+        `Deep nesting: ${leafProcesses} leaf processes in ${elapsed.toFixed(2)}ms`
+      );
 
       // Should complete within 500ms
       expect(elapsed).toBeLessThan(500);
@@ -104,8 +114,12 @@ describe('Stress Tests', () => {
       const endTime = performance.now();
       const elapsed = endTime - startTime;
 
-      console.log(`Priority queue: ${served} served in ${elapsed.toFixed(2)}ms`);
-      console.log(`Average wait time: ${resource.stats.averageWaitTime.toFixed(3)}`);
+      console.log(
+        `Priority queue: ${served} served in ${elapsed.toFixed(2)}ms`
+      );
+      console.log(
+        `Average wait time: ${resource.stats.averageWaitTime.toFixed(3)}`
+      );
 
       // Should complete within 1 second
       expect(elapsed).toBeLessThan(1000);
@@ -151,7 +165,10 @@ describe('Stress Tests', () => {
               resource.release();
               completions++;
             } catch (error: unknown) {
-              if (error instanceof Error && error.message.includes('preempted')) {
+              if (
+                error instanceof Error &&
+                error.message.includes('preempted')
+              ) {
                 preemptions++;
               }
             }
@@ -163,7 +180,9 @@ describe('Stress Tests', () => {
       const endTime = performance.now();
       const elapsed = endTime - startTime;
 
-      console.log(`Preemption test: ${completions} completed, ${preemptions} preempted`);
+      console.log(
+        `Preemption test: ${completions} completed, ${preemptions} preempted`
+      );
       console.log(`Time: ${elapsed.toFixed(2)}ms`);
 
       // Should complete within 500ms
@@ -203,9 +222,15 @@ describe('Stress Tests', () => {
       const endTime = performance.now();
       const elapsed = endTime - startTime;
 
-      console.log(`Statistics for 10000 samples calculated in ${elapsed.toFixed(2)}ms`);
-      console.log(`Mean: ${metrics.mean.toFixed(2)}, StdDev: ${metrics.stdDev.toFixed(2)}`);
-      console.log(`P50: ${metrics.p50.toFixed(2)}, P95: ${metrics.p95.toFixed(2)}`);
+      console.log(
+        `Statistics for 10000 samples calculated in ${elapsed.toFixed(2)}ms`
+      );
+      console.log(
+        `Mean: ${metrics.mean.toFixed(2)}, StdDev: ${metrics.stdDev.toFixed(2)}`
+      );
+      console.log(
+        `P50: ${metrics.p50.toFixed(2)}, P95: ${metrics.p95.toFixed(2)}`
+      );
 
       // Should complete within 150ms (relaxed for CI environments)
       expect(elapsed).toBeLessThan(150);
@@ -236,7 +261,9 @@ describe('Stress Tests', () => {
       }
       const warmTime = performance.now() - warmStart;
 
-      console.log(`Cold cache: ${coldTime.toFixed(2)}ms, Warm cache: ${warmTime.toFixed(2)}ms`);
+      console.log(
+        `Cold cache: ${coldTime.toFixed(2)}ms, Warm cache: ${warmTime.toFixed(2)}ms`
+      );
       console.log(`Speedup: ${(coldTime / warmTime).toFixed(1)}x`);
 
       // Warm cache should be at least 5x faster
@@ -269,7 +296,9 @@ describe('Stress Tests', () => {
       const endTime = performance.now();
       const elapsed = endTime - startTime;
 
-      console.log(`Event queue: ${count} events processed in ${elapsed.toFixed(2)}ms`);
+      console.log(
+        `Event queue: ${count} events processed in ${elapsed.toFixed(2)}ms`
+      );
 
       // Should complete within 100ms
       expect(elapsed).toBeLessThan(100);

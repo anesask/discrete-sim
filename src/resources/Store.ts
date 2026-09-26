@@ -65,10 +65,9 @@ export class StoreGetRequest<T> {
   ) {
     // Validate filter is a function if provided
     if (filter !== undefined && typeof filter !== 'function') {
-      throw new ValidationError(
-        'Filter must be a function or undefined',
-        { filter: typeof filter }
-      );
+      throw new ValidationError('Filter must be a function or undefined', {
+        filter: typeof filter,
+      });
     }
   }
 }
@@ -177,7 +176,11 @@ export class Store<T = any> {
     options: StoreOptions = {}
   ) {
     // Validate capacity
-    validateFinite(capacity, 'capacity', 'Store capacity must be a finite number');
+    validateFinite(
+      capacity,
+      'capacity',
+      'Store capacity must be a finite number'
+    );
     validatePositive(capacity, 'capacity', 'Store capacity must be positive');
 
     // Validate name if provided
@@ -314,9 +317,7 @@ export class Store<T = any> {
     this.totalGetsCount++;
 
     // Try to find matching item
-    const itemIndex = filter
-      ? this.itemsArray.findIndex(filter)
-      : 0; // FIFO if no filter
+    const itemIndex = filter ? this.itemsArray.findIndex(filter) : 0; // FIFO if no filter
 
     if (itemIndex >= 0 && this.itemsArray.length > 0) {
       // Matching item found, get immediately
@@ -377,7 +378,10 @@ export class Store<T = any> {
    * @private
    */
   private tryFulfillPuts(): void {
-    while (this.putQueue.length > 0 && this.itemsArray.length < this.capacityValue) {
+    while (
+      this.putQueue.length > 0 &&
+      this.itemsArray.length < this.capacityValue
+    ) {
       const request = this.putQueue.shift()!;
 
       // Add item to store

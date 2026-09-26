@@ -628,7 +628,11 @@ export class Simulation {
    */
   _emitResource(operation: string, data: Record<string, unknown>): void {
     if (this.traceConfig.resources) {
-      this.emit('trace:resource', { operation, time: this.currentTime, ...data });
+      this.emit('trace:resource', {
+        operation,
+        time: this.currentTime,
+        ...data,
+      });
     }
   }
 
@@ -639,7 +643,11 @@ export class Simulation {
    */
   _emitProcess(operation: string, data: Record<string, unknown>): void {
     if (this.traceConfig.processes) {
-      this.emit('trace:process', { operation, time: this.currentTime, ...data });
+      this.emit('trace:process', {
+        operation,
+        time: this.currentTime,
+        ...data,
+      });
     }
   }
 
@@ -650,7 +658,11 @@ export class Simulation {
    */
   _emitSimEvent(operation: string, data: Record<string, unknown>): void {
     if (this.traceConfig.simEvents) {
-      this.emit('trace:simevent', { operation, time: this.currentTime, ...data });
+      this.emit('trace:simevent', {
+        operation,
+        time: this.currentTime,
+        ...data,
+      });
     }
   }
 }

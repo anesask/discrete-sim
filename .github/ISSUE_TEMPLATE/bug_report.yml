@@ -1,0 +1,50 @@
+name: Bug report
+description: Something behaves differently from what the docs say
+title: "Bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A small, self-contained script. Use a fixed seed if randomness is involved.
+      render: ts
+      placeholder: |
+        import { Simulation, Resource, timeout } from 'discrete-sim';
+
+        const sim = new Simulation();
+        // ...
+        sim.run();
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: discrete-sim version
+      placeholder: "0.1.9"
+    validations:
+      required: true
+
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Node version or browser, and OS
+      placeholder: "Node 22.4 on Windows 11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Stack traces, trace output from sim.enableTrace(), links.

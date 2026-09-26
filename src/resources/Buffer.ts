@@ -152,7 +152,9 @@ export class Buffer {
   private currentLevel: number;
   private readonly putQueue: QueuedPutRequest[];
   private readonly getQueue: QueuedGetRequest[];
-  private readonly options: Required<Omit<BufferOptions, 'putQueueDiscipline' | 'getQueueDiscipline'>>;
+  private readonly options: Required<
+    Omit<BufferOptions, 'putQueueDiscipline' | 'getQueueDiscipline'>
+  >;
   private readonly putQueueConfig: QueueDisciplineConfig;
   private readonly getQueueConfig: QueueDisciplineConfig;
 
@@ -183,7 +185,11 @@ export class Buffer {
     options: BufferOptions = {}
   ) {
     // Validate capacity
-    validateFinite(capacity, 'capacity', 'Buffer capacity must be a finite number');
+    validateFinite(
+      capacity,
+      'capacity',
+      'Buffer capacity must be a finite number'
+    );
     validatePositive(capacity, 'capacity', 'Buffer capacity must be positive');
 
     // Validate initial level if provided

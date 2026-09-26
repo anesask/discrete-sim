@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Run examples (smoke)
+        run: |
+          set -e
+          for f in examples/*/index.ts; do
+            echo "::group::$f"
+            npx tsx "$f" > /dev/null
+            echo "::endgroup::"
+          done
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test with coverage
+        run: npx vitest run --coverage --coverage.reporter=text-summary --coverage.reporter=lcov
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: warn
+
+  version-bump:
+    name: Version bumped
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare package.json version with base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HAS_NO_BUMP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no-bump') }}
+        run: |
+          set -e
+          base=$(git show "origin/${BASE_REF}:package.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          head=$(node -p "require('./package.json').version")
+          echo "base: $base"
+          echo "head: $head"
+          if [ "$HAS_NO_BUMP_LABEL" = "true" ]; then
+            echo "PR carries the no-bump label, skipping the check."
+            exit 0
+          fi
+          if [ "$base" = "$head" ]; then
+            echo "::error::package.json version ($head) is unchanged. Every merge to main bumps the version (npm version patch|minor --no-git-tag-version) or carries the 'no-bump' label."
+            exit 1
+          fi
+          if ! grep -q "^## \[$head\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$head]' section for the new version."
+            exit 1
+          fi
+          echo "Version bumped $base -> $head and CHANGELOG has a section for it."
+
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [checks, coverage, version-bump]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          # version-bump is skipped on push events; skipped is fine, failure or cancellation is not.
+          if echo "$RESULTS" | grep -Eq '"result": "(failure|cancelled)"'; then
+            echo "::error::One or more required jobs failed."
+            exit 1
+          fi
+          echo "All required jobs passed."

@@ -66,9 +66,7 @@ describe('Buffer', () => {
 
     it('should reject empty name', () => {
       const sim = new Simulation();
-      expect(() => new Buffer(sim, 100, { name: '' })).toThrow(
-        ValidationError
-      );
+      expect(() => new Buffer(sim, 100, { name: '' })).toThrow(ValidationError);
     });
   });
 
