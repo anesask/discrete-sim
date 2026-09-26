@@ -3,6 +3,7 @@ import { ResourceRequest } from '../resources/Resource.js';
 import { BufferPutRequest, BufferGetRequest } from '../resources/Buffer.js';
 import { StorePutRequest, StoreGetRequest } from '../resources/Store.js';
 import { BatchPutRequest, BatchTakeRequest } from '../resources/Batch.js';
+import { StateWaitRequest } from './State.js';
 import { SimEventRequest } from './SimEvent.js';
 import {
   ValidationError,
@@ -216,6 +217,8 @@ export type Waitable =
   | BatchPutRequest<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | BatchTakeRequest<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | StateWaitRequest<any>
   | SimEventRequest
   | ProcessDoneRequest;
 
@@ -235,6 +238,7 @@ function isWaitable(value: unknown): value is Waitable {
     value instanceof StoreGetRequest ||
     value instanceof BatchPutRequest ||
     value instanceof BatchTakeRequest ||
+    value instanceof StateWaitRequest ||
     value instanceof SimEventRequest ||
     value instanceof ProcessDoneRequest
   );
@@ -422,6 +426,8 @@ export type ProcessGenerator = Generator<
   | BatchPutRequest<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | BatchTakeRequest<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | StateWaitRequest<any>
   | SimEventRequest
   | ProcessDoneRequest
   | AnyOfRequest
@@ -877,6 +883,17 @@ export class Process {
       waitable.batch._take(onTaken, this);
       return () => {
         waitable.batch._cancelTake(onTaken);
+      };
+    }
+    if (waitable instanceof StateWaitRequest) {
+      const onSatisfied = (value: unknown) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        waitable.value = value;
+        onComplete();
+      };
+      waitable.state._addWaiter(waitable.predicate, onSatisfied, this);
+      return () => {
+        waitable.state._removeWaiter(onSatisfied);
       };
     }
     if (waitable instanceof SimEventRequest) {

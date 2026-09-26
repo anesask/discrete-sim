@@ -24,6 +24,9 @@ export {
   OnChangeOptions,
 } from './core/Schedule.js';
 
+// Observable state
+export { State, StateWaitRequest, StateOptions } from './core/State.js';
+
 // Event coordination
 export { SimEvent, SimEventRequest } from './core/SimEvent.js';
 
