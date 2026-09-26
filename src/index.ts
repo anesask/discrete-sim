@@ -92,6 +92,9 @@ export {
   BatchTakeRequest,
 } from './resources/Batch.js';
 
+// Monitors (history of resource state over time)
+export { Monitor, MonitorOptions } from './statistics/Monitor.js';
+
 // Statistics collection
 export {
   Statistics,
