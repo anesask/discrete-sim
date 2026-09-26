@@ -21,7 +21,6 @@ coverage/
 # Documentation builds
 docs-site/.vitepress/dist/
 docs-site/.vitepress/cache/
-docs/api/
 .docusaurus/
 
 # Environment variables
