@@ -1,6 +1,7 @@
 import { ValidationError } from '../utils/validation.js';
 import { studentTCritical } from '../statistics/distributions.js';
 import type { ConfidenceInterval } from '../statistics/Statistics.js';
+import { csvCell } from '../utils/csv.js';
 
 /**
  * A model factory: builds a simulation for the given parameters and seed,
@@ -133,10 +134,7 @@ function validateConfidence(confidence: number): void {
   }
 }
 
-function csvEscape(value: unknown): string {
-  const s = String(value);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+const csvEscape = csvCell;
 
 /**
  * Results of running one scenario several times with different seeds.
@@ -439,6 +437,12 @@ export class Experiment<P, M extends Record<string, number>> {
     if (keys.length === 0) return [];
     let combos: Partial<P>[] = [{}];
     for (const key of keys) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        throw new ValidationError(
+          `Parameter name "${String(key)}" is not allowed`,
+          { key }
+        );
+      }
       const values: readonly P[keyof P][] = space[key];
       if (values.length === 0) return [];
       const next: Partial<P>[] = [];

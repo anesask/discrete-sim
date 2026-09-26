@@ -80,5 +80,8 @@
     "node": ">=20"
   },
   "sideEffects": false,
-  "type": "commonjs"
+  "type": "commonjs",
+  "overrides": {
+    "esbuild": "^0.28.2"
+  }
 }

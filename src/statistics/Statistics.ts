@@ -1,6 +1,7 @@
 import { Simulation } from '../core/Simulation.js';
 import { ValidationError, validateFinite } from '../utils/validation.js';
 import { studentTCritical } from './distributions.js';
+import { csvCell } from '../utils/csv.js';
 import type { Random } from '../random/Random.js';
 
 /**
@@ -509,7 +510,7 @@ export class Statistics {
       lines.push('# Time-Weighted Averages');
       lines.push('Metric,Average');
       for (const name of this.values.keys()) {
-        lines.push(`${name},${this.getAverage(name)}`);
+        lines.push(`${csvCell(name)},${this.getAverage(name)}`);
       }
       lines.push('');
     }
@@ -519,7 +520,7 @@ export class Statistics {
       lines.push('# Counters');
       lines.push('Metric,Count');
       for (const [name, count] of this.counters.entries()) {
-        lines.push(`${name},${count}`);
+        lines.push(`${csvCell(name)},${count}`);
       }
       lines.push('');
     }
@@ -539,7 +540,7 @@ export class Statistics {
         const p95 = this.getPercentile(name, 95);
         const p99 = this.getPercentile(name, 99);
         lines.push(
-          `${name},${count},${mean},${min},${max},${variance},${stdDev},${p50},${p95},${p99}`
+          `${csvCell(name)},${count},${mean},${min},${max},${variance},${stdDev},${p50},${p95},${p99}`
         );
       }
       lines.push('');
@@ -548,7 +549,7 @@ export class Statistics {
     // Timeseries section
     if (this.timeseries.size > 0) {
       for (const [name, points] of this.timeseries.entries()) {
-        lines.push(`# Timeseries: ${name}`);
+        lines.push(`# Timeseries: ${csvCell(name)}`);
         lines.push('Time,Value');
         for (const point of points) {
           lines.push(`${point.time},${point.value}`);
