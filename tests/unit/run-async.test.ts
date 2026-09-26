@@ -78,7 +78,7 @@ describe('runAsync', () => {
     for (let t = 1; t <= 10; t++) sim.schedule(t, () => {});
     const progress: ProgressInfo[] = [];
     let completed = 0;
-    sim.on('progress', (info) => progress.push(info as ProgressInfo));
+    sim.on('progress', (info) => progress.push(info));
     sim.on('complete', () => completed++);
 
     await sim.runAsync({ batchSize: 4 });
@@ -94,7 +94,7 @@ describe('runAsync', () => {
     for (let t = 1; t <= 100; t++) sim.schedule(t, () => {});
     const controller = new AbortController();
     sim.on('progress', (info) => {
-      if ((info as ProgressInfo).eventsProcessed >= 20) controller.abort();
+      if (info.eventsProcessed >= 20) controller.abort();
     });
 
     const result = await sim.runAsync({
@@ -224,7 +224,7 @@ describe('runRealtime', () => {
   it('honours until, emits progress per event and frees the running flag', async () => {
     [1, 2, 3, 4].forEach((t) => sim.schedule(t, () => {}));
     const progress: number[] = [];
-    sim.on('progress', (info) => progress.push((info as ProgressInfo).now));
+    sim.on('progress', (info) => progress.push(info.now));
 
     const handle = sim.runRealtime({ factor: 0.01, until: 2.5 });
     expect(() => sim.run()).toThrow('already running');

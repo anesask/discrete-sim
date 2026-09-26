@@ -431,9 +431,20 @@ export type ProcessGenerator = Generator<
 >;
 
 /**
+ * Options for creating a process.
+ */
+export interface ProcessOptions {
+  /** Name used in errors and trace events (default: generator function name or process-<id>) */
+  name?: string;
+}
+
+/**
  * Process state
  */
 type ProcessState = 'pending' | 'running' | 'completed' | 'interrupted';
+
+/** Marks errors that already carry process information */
+const ANNOTATED = Symbol('discrete-sim.process-annotated');
 
 /**
  * Process for discrete-event simulation.
@@ -458,6 +469,11 @@ type ProcessState = 'pending' | 'running' | 'completed' | 'interrupted';
  * ```
  */
 export class Process {
+  /** Monotonic id within the simulation, starting at 1 */
+  readonly id: number;
+  /** Name used in errors and trace events */
+  readonly name: string;
+
   private readonly simulation: Simulation;
   private readonly generator: ProcessGenerator;
   private state: ProcessState;
@@ -486,10 +502,30 @@ export class Process {
    * proc.start();
    * ```
    */
-  constructor(simulation: Simulation, generatorFn: () => ProcessGenerator) {
+  constructor(
+    simulation: Simulation,
+    generatorFn: () => ProcessGenerator,
+    options: ProcessOptions = {}
+  ) {
     this.simulation = simulation;
+    this.id = simulation._nextProcessId();
+    if (options.name !== undefined && options.name.trim() === '') {
+      throw new ValidationError('Process name cannot be empty', {
+        name: options.name,
+      });
+    }
+    this.name =
+      options.name ??
+      (generatorFn.name && generatorFn.name !== 'anonymous'
+        ? generatorFn.name
+        : `process-${this.id}`);
     this.generator = generatorFn();
     this.state = 'pending';
+  }
+
+  /** Identity fields for trace payloads and errors */
+  private traceInfo(): { processId: number; processName: string } {
+    return { processId: this.id, processName: this.name };
   }
 
   /**
@@ -509,6 +545,8 @@ export class Process {
     validateProcessState(this.state, ['pending'], 'start');
 
     this.state = 'running';
+    this.simulation._registerProcess(this);
+    this.simulation._emitProcess('process:start', this.traceInfo());
     // Execute immediately (synchronously) until first yield
     this.step();
   }
@@ -542,6 +580,10 @@ export class Process {
 
     this.state = 'interrupted';
     this.interruptError = reason ?? new Error('Process interrupted');
+    this.simulation._emitProcess('process:interrupt', {
+      ...this.traceInfo(),
+      error: this.interruptError,
+    });
 
     // Leave every queue / unschedule every event this process was waiting on
     this.cancelCurrentWait();
@@ -711,7 +753,12 @@ export class Process {
 
       this.dispatch(result.value);
     } catch (error) {
-      // Unhandled error in process
+      // Unhandled error in process: say which process, then rethrow
+      this.annotate(error);
+      this.simulation._emitProcess('process:error', {
+        ...this.traceInfo(),
+        error: error instanceof Error ? error : undefined,
+      });
       this.finish('interrupted');
       throw error;
     }
@@ -995,6 +1042,10 @@ export class Process {
    */
   private finish(state: 'completed' | 'interrupted'): void {
     this.state = state;
+    this.simulation._emitProcess(
+      state === 'completed' ? 'process:complete' : 'process:interrupted',
+      this.traceInfo()
+    );
     this.waitSeq++;
     this.waitCancel = undefined;
     this.simulation._removeProcess(this);
@@ -1004,6 +1055,27 @@ export class Process {
     for (const callback of callbacks) {
       this.simulation.schedule(0, callback);
     }
+  }
+
+  /**
+   * Attach process id, name and time to an unhandled error so the message
+   * and a non-enumerable `process` property say where it came from.
+   * @private
+   */
+  private annotate(error: unknown): void {
+    if (!(error instanceof Error)) return;
+    const tagged = error as Error & { [ANNOTATED]?: true };
+    if (tagged[ANNOTATED]) return;
+    const info = { id: this.id, name: this.name, time: this.simulation.now };
+    Object.defineProperty(tagged, ANNOTATED, {
+      value: true,
+      enumerable: false,
+    });
+    Object.defineProperty(tagged, 'process', {
+      value: info,
+      enumerable: false,
+    });
+    tagged.message = `${tagged.message} [process "${this.name}" #${this.id} at t=${info.time}]`;
   }
 
   /**

@@ -266,11 +266,13 @@ export class Resource {
     this.updateStatistics();
 
     this.totalRequestsCount++;
+    this.trace('resource:request', process, { priority });
 
     if (this.inUseCount < this.capacityValue) {
       // Resource available, grant immediately
       this.inUseCount++;
       request?._markGranted();
+      this.trace('resource:grant', process, { priority, waited: 0 });
 
       // Track active user if preemptive resource
       if (this.options.preemptive && process) {
@@ -295,6 +297,7 @@ export class Resource {
         // Grant resource to new request
         this.inUseCount++;
         request?._markGranted();
+        this.trace('resource:grant', process, { priority, waited: 0 });
         this.activeUsers.push({
           priority,
           process,
@@ -328,8 +331,29 @@ export class Resource {
       return false;
     }
     this.updateStatistics();
-    this.queue.splice(index, 1);
+    const [removed] = this.queue.splice(index, 1);
+    this.trace('resource:cancel', removed?.process, {});
     return true;
+  }
+
+  /**
+   * Emit a trace event for this resource (no-op unless resource tracing is on).
+   * @private
+   */
+  private trace(
+    operation: string,
+    process: Process | undefined,
+    extra: Record<string, unknown>
+  ): void {
+    this.simulation._emitResource(operation, {
+      resource: this,
+      name: this.options.name,
+      processId: process?.id,
+      processName: process?.name,
+      inUse: this.inUseCount,
+      queueLength: this.queue.length,
+      ...extra,
+    });
   }
 
   /**
@@ -448,6 +472,7 @@ export class Resource {
     this.inUseCount--;
     this.totalPreemptionsCount++;
     user.request?._markPreempted();
+    this.trace('resource:preempt', user.process, { priority: user.priority });
 
     // Interrupt the process
     user.process.interrupt(
@@ -545,6 +570,7 @@ export class Resource {
 
     this.totalReleasesCount++;
     this.inUseCount--;
+    this.trace('resource:release', process, {});
 
     // Grant to the next in line while capacity allows (after setCapacity()
     // shrank the pool, units are shed here until inUse is back under capacity)
@@ -565,6 +591,10 @@ export class Resource {
       this.totalWaitTime += waitTime;
 
       request.request?._markGranted();
+      this.trace('resource:grant', request.process, {
+        priority: request.priority,
+        waited: waitTime,
+      });
 
       // Add to active users if preemptive
       if (this.options.preemptive && request.process) {

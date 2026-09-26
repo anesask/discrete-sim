@@ -5,7 +5,11 @@ import {
   validateNonNegative,
   validateTime,
 } from '../utils/validation.js';
-import { Process, type ProcessGenerator } from './Process.js';
+import {
+  Process,
+  type ProcessGenerator,
+  type ProcessOptions,
+} from './Process.js';
 
 /**
  * Configuration options for the simulation.
@@ -33,9 +37,88 @@ export interface SimulationResult {
 }
 
 /**
- * Event handler type for simulation lifecycle events
+ * Event handler type for simulation lifecycle events (internal storage)
  */
 type EventHandler = (...args: unknown[]) => void;
+
+/**
+ * Fields every trace event carries.
+ */
+export interface TraceEventBase {
+  /** What happened, e.g. 'resource:grant' */
+  operation: string;
+  /** Simulation time of the event */
+  time: number;
+  /** Id of the process involved, when one is known */
+  processId?: number;
+  /** Name of the process involved, when one is known */
+  processName?: string;
+}
+
+/**
+ * Payload of 'trace:resource' events (Resource, Buffer, Store, Batch).
+ */
+export interface ResourceTraceEvent extends TraceEventBase {
+  operation:
+    | 'resource:request'
+    | 'resource:grant'
+    | 'resource:release'
+    | 'resource:cancel'
+    | 'resource:preempt'
+    | 'buffer:put'
+    | 'buffer:get'
+    | 'store:put'
+    | 'store:get'
+    | 'batch:put'
+    | 'batch:take';
+  /** Name of the resource */
+  name: string;
+  [extra: string]: unknown;
+}
+
+/**
+ * Payload of 'trace:process' events.
+ */
+export interface ProcessTraceEvent extends TraceEventBase {
+  operation:
+    | 'process:start'
+    | 'process:complete'
+    | 'process:interrupt'
+    | 'process:interrupted'
+    | 'process:error';
+  processId: number;
+  processName: string;
+  /** Interrupt reason or unhandled error, when applicable */
+  error?: Error;
+}
+
+/**
+ * Payload of 'trace:simevent' events.
+ */
+export interface SimEventTraceEvent extends TraceEventBase {
+  operation:
+    'event:trigger' | 'event:reset' | 'event:wait' | 'event:waiter-removed';
+  /** Name of the SimEvent */
+  name: string;
+  [extra: string]: unknown;
+}
+
+/**
+ * Typed map of everything sim.on() can subscribe to.
+ */
+export interface SimulationEvents {
+  /** After each executed event */
+  step: (event: Event) => void;
+  /** After run(), runAsync() or runRealtime() finish */
+  complete: (result: SimulationResult) => void;
+  /** An event callback threw (the error is rethrown afterwards) */
+  error: (error: unknown) => void;
+  /** Progress of runAsync() / runRealtime() */
+  progress: (info: ProgressInfo) => void;
+  'trace:resource': (event: ResourceTraceEvent) => void;
+  'trace:process': (event: ProcessTraceEvent) => void;
+  'trace:simevent': (event: SimEventTraceEvent) => void;
+}
 
 /**
  * Trace configuration options
@@ -169,6 +252,8 @@ export class Simulation {
    */
   readonly random: Random;
 
+  private processIdCounter = 0;
+
   /**
    * Create a new simulation instance.
    *
@@ -273,11 +358,34 @@ export class Simulation {
    * });
    * ```
    */
-  process(generatorFn: () => ProcessGenerator): Process {
-    const proc = new Process(this, generatorFn);
-    this.activeProcesses.add(proc);
+  process(
+    generatorFn: () => ProcessGenerator,
+    options: ProcessOptions = {}
+  ): Process {
+    const proc = new Process(this, generatorFn, options);
     proc.start();
     return proc;
+  }
+
+  /**
+   * Processes that have started and not yet finished.
+   */
+  get processes(): ReadonlySet<Process> {
+    return this.activeProcesses;
+  }
+
+  /**
+   * @internal
+   */
+  _nextProcessId(): number {
+    return ++this.processIdCounter;
+  }
+
+  /**
+   * @internal
+   */
+  _registerProcess(process: Process): void {
+    this.activeProcesses.add(process);
   }
 
   /**
@@ -763,21 +871,18 @@ export class Simulation {
    * });
    * ```
    */
-  on(
-    event:
-      | 'step'
-      | 'complete'
-      | 'error'
-      | 'progress'
-      | 'trace:resource'
-      | 'trace:process'
-      | 'trace:simevent',
-    handler: EventHandler
-  ): void {
+  on<K extends keyof SimulationEvents>(
+    event: K,
+    handler: SimulationEvents[K]
+  ): () => void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, new Set());
     }
-    this.eventHandlers.get(event)?.add(handler);
+    const stored = handler as unknown as EventHandler;
+    this.eventHandlers.get(event)?.add(stored);
+    return () => {
+      this.eventHandlers.get(event)?.delete(stored);
+    };
   }
 
   /**
@@ -794,8 +899,11 @@ export class Simulation {
    * sim.off('step', handler);
    * ```
    */
-  off(event: string, handler: EventHandler): void {
-    this.eventHandlers.get(event)?.delete(handler);
+  off<K extends keyof SimulationEvents>(
+    event: K,
+    handler: SimulationEvents[K]
+  ): void {
+    this.eventHandlers.get(event)?.delete(handler as unknown as EventHandler);
   }
 
   /**

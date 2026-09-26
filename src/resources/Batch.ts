@@ -304,6 +304,13 @@ export class Batch<T = any> {
    */
   _put(item: T, onAccepted: () => void, process?: Process): void {
     this.totalPutsCount++;
+    this.simulation._emitResource('batch:put', {
+      resource: this,
+      name: this.options.name,
+      processId: process?.id,
+      processName: process?.name,
+      size: this.current.length,
+    });
     if (this.options.unbounded || this.ready.length === 0) {
       this.accept(item);
       onAccepted();
@@ -324,6 +331,13 @@ export class Batch<T = any> {
     onTaken: (items: T[], isPartial: boolean) => void,
     process?: Process
   ): void {
+    this.simulation._emitResource('batch:take', {
+      resource: this,
+      name: this.options.name,
+      processId: process?.id,
+      processName: process?.name,
+      ready: this.ready.length,
+    });
     const formed = this.ready.shift();
     if (formed) {
       this.totalTakesCount++;
