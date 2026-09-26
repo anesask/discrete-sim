@@ -403,10 +403,16 @@ export class Process {
               this
             );
           } else if (yieldedValue instanceof StorePutRequest) {
-            yieldedValue.store._put(yieldedValue.item, () => this.step(), this);
+            yieldedValue.store._put(
+              yieldedValue.item,
+              yieldedValue.priority,
+              () => this.step(),
+              this
+            );
           } else if (yieldedValue instanceof StoreGetRequest) {
             yieldedValue.store._get(
               yieldedValue.filter,
+              yieldedValue.priority,
               (item) => {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 yieldedValue.retrievedItem = item;
@@ -485,11 +491,17 @@ export class Process {
         );
       } else if (yieldedValue instanceof StorePutRequest) {
         // Put item into store and continue when space available
-        yieldedValue.store._put(yieldedValue.item, () => this.step(), this);
+        yieldedValue.store._put(
+          yieldedValue.item,
+          yieldedValue.priority,
+          () => this.step(),
+          this
+        );
       } else if (yieldedValue instanceof StoreGetRequest) {
         // Get item from store and continue when item available
         yieldedValue.store._get(
           yieldedValue.filter,
+          yieldedValue.priority,
           (item) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             yieldedValue.retrievedItem = item;
