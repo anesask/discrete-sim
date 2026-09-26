@@ -367,6 +367,13 @@ export class Store<T = any> {
     this.updateStatistics();
 
     this.totalPutsCount++;
+    this.simulation._emitResource('store:put', {
+      resource: this,
+      name: this.options.name,
+      processId: process?.id,
+      processName: process?.name,
+      size: this.itemsArray.length,
+    });
 
     if (this.itemsArray.length < this.capacityValue) {
       // Space available, put immediately
@@ -411,6 +418,13 @@ export class Store<T = any> {
     this.updateStatistics();
 
     this.totalGetsCount++;
+    this.simulation._emitResource('store:get', {
+      resource: this,
+      name: this.options.name,
+      processId: process?.id,
+      processName: process?.name,
+      size: this.itemsArray.length,
+    });
 
     // Try to find matching item
     const itemIndex = filter ? this.itemsArray.findIndex(filter) : 0; // FIFO if no filter

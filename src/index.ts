@@ -8,6 +8,11 @@ export {
   RealtimeOptions,
   RealtimeHandle,
   ProgressInfo,
+  SimulationEvents,
+  TraceEventBase,
+  ResourceTraceEvent,
+  ProcessTraceEvent,
+  SimEventTraceEvent,
 } from './core/Simulation.js';
 export { EventQueue, Event } from './core/EventQueue.js';
 
@@ -31,6 +36,7 @@ export {
 // Process-based modeling
 export {
   Process,
+  ProcessOptions,
   ProcessGenerator,
   Timeout,
   Condition,

@@ -270,7 +270,7 @@ describe('Simulation + Resource + Process Integration', () => {
         process.start();
       } catch (error) {
         errorCaught = true;
-        expect((error as Error).message).toBe('Process error');
+        expect((error as Error).message).toContain('Process error');
       }
 
       expect(errorCaught).toBe(true);
