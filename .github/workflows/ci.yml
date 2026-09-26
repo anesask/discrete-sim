@@ -81,7 +81,8 @@ jobs:
 
   version-bump:
     name: Version bumped
-    if: github.event_name == 'pull_request'
+    # Dependency-update bots never bump the package version; the label check below covers humans.
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
