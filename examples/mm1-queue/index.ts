@@ -44,7 +44,9 @@ function* customerProcess(
   sim: Simulation
 ) {
   // Request server (may have to wait in queue)
+  const arrivalTime = sim.now;
   yield server.request();
+  stats.recordSample('wait-time', sim.now - arrivalTime);
 
   // Track customer served
   stats.increment('customers-served');
@@ -94,6 +96,7 @@ function runSimulation() {
   const sim = new Simulation();
   const server = new Resource(sim, 1, { name: 'Server' });
   const stats = new Statistics(sim);
+  stats.enableSampleTracking('wait-time');
   const rng = new Random(RANDOM_SEED);
 
   // Start arrival process
@@ -134,6 +137,14 @@ function runSimulation() {
   console.log('\nAverage Wait Time in Queue:');
   console.log(`  Theoretical: ${THEORETICAL_WAIT.toFixed(4)}`);
   console.log(`  Simulated:   ${avgWaitTime.toFixed(4)}`);
+  // Consecutive waits are autocorrelated, so use batch means for the interval
+  const waitCI = stats.getBatchMeansCI('wait-time', { batches: 20 });
+  console.log(
+    `  95% CI:      [${waitCI.lower.toFixed(4)}, ${waitCI.upper.toFixed(4)}] (batch means, ${waitCI.batches} batches)`
+  );
+  console.log(
+    `  Theory inside CI: ${THEORETICAL_WAIT >= waitCI.lower && THEORETICAL_WAIT <= waitCI.upper ? 'yes' : 'no'}`
+  );
   console.log(
     `  Error:       ${Math.abs(avgWaitTime - THEORETICAL_WAIT).toFixed(4)}`
   );

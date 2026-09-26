@@ -58,6 +58,10 @@ export {
   Statistics,
   TimePoint,
   HistogramBin,
+  ConfidenceInterval,
+  BatchMeansResult,
+  BatchMeansOptions,
+  SummaryStatistics,
 } from './statistics/Statistics.js';
 
 // Random number generation
