@@ -357,9 +357,7 @@ function runSimulation() {
 
   if (bedStats.totalPreemptions > 0) {
     console.log('\nPreemption Impact:');
-    const criticalAfterPreemption = stats.getCount(
-      'critical-completed-after-preemption'
-    );
+    // Critical patients hold the highest priority and are never preempted
     const urgentAfterPreemption = stats.getCount(
       'urgent-completed-after-preemption'
     );
