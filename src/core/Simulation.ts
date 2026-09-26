@@ -86,6 +86,69 @@ export interface EventTrace {
   executedAt: number;
 }
 
+/**
+ * Options for {@link Simulation.runAsync}.
+ */
+export interface RunAsyncOptions {
+  /** Stop once the next event would be later than this time (like run(until)) */
+  until?: number;
+  /** Events to process before yielding to the event loop (default 1000) */
+  batchSize?: number;
+  /** Abort early; the promise resolves with the partial result */
+  signal?: AbortSignal;
+}
+
+/**
+ * Options for {@link Simulation.runRealtime}.
+ */
+export interface RealtimeOptions {
+  /**
+   * Wall-clock seconds per simulation time unit (default 1).
+   * 0.1 means one simulation unit takes 100 ms of real time.
+   */
+  factor?: number;
+  /** Stop once the next event would be later than this time */
+  until?: number;
+}
+
+/**
+ * Progress information emitted on the 'progress' event by runAsync() and
+ * runRealtime().
+ */
+export interface ProgressInfo {
+  /** Current simulation time */
+  now: number;
+  /** Events processed so far in this run */
+  eventsProcessed: number;
+  /** Events still scheduled */
+  eventsInQueue: number;
+}
+
+/**
+ * Control handle returned by {@link Simulation.runRealtime}.
+ */
+export interface RealtimeHandle {
+  /** Resolves with the run result when the simulation finishes or is stopped */
+  readonly done: Promise<SimulationResult>;
+  /** Freeze the simulation clock; pending wall-clock waits are suspended */
+  pause(): void;
+  /** Continue after pause(); the time spent paused does not count */
+  resume(): void;
+  /** End the run now; `done` resolves with the result so far */
+  stop(): void;
+  /** Change the pacing while running */
+  setFactor(factor: number): void;
+  /** True while paused */
+  readonly isPaused: boolean;
+  /** True until the run has finished or been stopped */
+  readonly isActive: boolean;
+}
+
+/** Let the host event loop run (works in browsers and Node). */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 export class Simulation {
   private readonly eventQueue: EventQueue;
   private currentTime: number;
@@ -358,6 +421,266 @@ export class Simulation {
   }
 
   /**
+   * Run the simulation without blocking the event loop.
+   *
+   * Processes events in batches and yields to the host between batches, so a
+   * browser page stays responsive and a Node server keeps serving. Emits a
+   * 'progress' event after every batch. The result is identical to run() for
+   * the same model and seed.
+   *
+   * @param options - until, batchSize, and an optional AbortSignal
+   * @returns Promise of the run summary
+   *
+   * @example
+   * ```typescript
+   * sim.on('progress', ({ now, eventsInQueue }) => updateProgressBar(now));
+   * const result = await sim.runAsync({ until: 10_000, batchSize: 500 });
+   * ```
+   */
+  async runAsync(options: RunAsyncOptions = {}): Promise<SimulationResult> {
+    const until = this.validateUntil(options.until);
+    const batchSize = options.batchSize ?? 1000;
+    if (!Number.isInteger(batchSize) || batchSize < 1) {
+      throw new ValidationError(
+        `batchSize must be a positive integer (got ${String(batchSize)})`,
+        { batchSize }
+      );
+    }
+    this.beginRun();
+    const startEvents = this.eventsProcessed;
+    this.log('Async run started', { until, batchSize });
+
+    try {
+      let aborted = false;
+      while (!this.eventQueue.isEmpty && !aborted) {
+        for (let i = 0; i < batchSize; i++) {
+          const next = this.eventQueue.peek();
+          if (!next) break;
+          if (until !== undefined && next.time > until) {
+            this.currentTime = until;
+            break;
+          }
+          this.step();
+        }
+        this.emitProgress(startEvents);
+        const next = this.eventQueue.peek();
+        if (!next || (until !== undefined && next.time > until)) break;
+        if (options.signal?.aborted) {
+          aborted = true;
+          break;
+        }
+        await yieldToEventLoop();
+        if (options.signal?.aborted) aborted = true;
+      }
+
+      if (!aborted && until !== undefined && this.currentTime < until) {
+        this.currentTime = until;
+      }
+
+      const result = this.buildResult(startEvents);
+      this.log('Async run completed', result);
+      this.emit('complete', result);
+      return result;
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
+   * Run the simulation paced to wall-clock time, for animations, dashboards
+   * and teaching. Each event executes when its simulation time is due
+   * according to `factor` seconds per simulation unit. Returns a handle to
+   * pause, resume, re-pace or stop the run. Emits 'progress' after every event.
+   *
+   * Events that are already overdue (for example after a large factor change)
+   * execute as fast as possible until the clock has caught up.
+   *
+   * @param options - factor (seconds per simulation unit, default 1) and until
+   * @returns Handle with a `done` promise and pause/resume/stop/setFactor controls
+   *
+   * @example
+   * ```typescript
+   * const handle = sim.runRealtime({ factor: 0.1, until: 1000 }); // 100 ms per unit
+   * pauseButton.onclick = () => handle.pause();
+   * const result = await handle.done;
+   * ```
+   */
+  runRealtime(options: RealtimeOptions = {}): RealtimeHandle {
+    const until = this.validateUntil(options.until);
+    let factor = options.factor ?? 1;
+    this.validateFactor(factor);
+    this.beginRun();
+    const startEvents = this.eventsProcessed;
+    this.log('Realtime run started', { until, factor });
+
+    let paused = false;
+    let active = true;
+    let pausedAt = 0;
+    let simOrigin = this.currentTime;
+    let wallOrigin = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let resolveDone!: (result: SimulationResult) => void;
+    let rejectDone!: (error: unknown) => void;
+    const done = new Promise<SimulationResult>((resolve, reject) => {
+      resolveDone = resolve;
+      rejectDone = reject;
+    });
+
+    const finish = (): void => {
+      if (!active) return;
+      active = false;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      if (until !== undefined && this.currentTime < until) {
+        const next = this.eventQueue.peek();
+        if (!next || next.time > until) this.currentTime = until;
+      }
+      this.isRunning = false;
+      const result = this.buildResult(startEvents);
+      this.log('Realtime run completed', result);
+      this.emit('complete', result);
+      resolveDone(result);
+    };
+
+    const fail = (error: unknown): void => {
+      if (!active) return;
+      active = false;
+      if (timer !== undefined) clearTimeout(timer);
+      this.isRunning = false;
+      rejectDone(error);
+    };
+
+    const scheduleNext = (): void => {
+      if (!active || paused) return;
+      const next = this.eventQueue.peek();
+      if (!next || (until !== undefined && next.time > until)) {
+        finish();
+        return;
+      }
+      const targetWall = wallOrigin + (next.time - simOrigin) * factor * 1000;
+      const delay = Math.max(0, targetWall - Date.now());
+      timer = setTimeout(() => {
+        timer = undefined;
+        if (!active || paused) return;
+        try {
+          this.step();
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        this.emitProgress(startEvents);
+        scheduleNext();
+      }, delay);
+    };
+
+    const handle: RealtimeHandle = {
+      done,
+      pause: () => {
+        if (!active || paused) return;
+        paused = true;
+        pausedAt = Date.now();
+        if (timer !== undefined) {
+          clearTimeout(timer);
+          timer = undefined;
+        }
+      },
+      resume: () => {
+        if (!active || !paused) return;
+        wallOrigin += Date.now() - pausedAt;
+        paused = false;
+        scheduleNext();
+      },
+      stop: () => finish(),
+      setFactor: (newFactor: number) => {
+        this.validateFactor(newFactor);
+        // Re-base so the current simulation time maps to "now"
+        simOrigin = this.currentTime;
+        wallOrigin = paused ? pausedAt : Date.now();
+        factor = newFactor;
+        if (active && !paused) {
+          if (timer !== undefined) {
+            clearTimeout(timer);
+            timer = undefined;
+          }
+          scheduleNext();
+        }
+      },
+      get isPaused() {
+        return paused;
+      },
+      get isActive() {
+        return active;
+      },
+    };
+
+    scheduleNext();
+    return handle;
+  }
+
+  /**
+   * @private
+   */
+  private beginRun(): void {
+    if (this.isRunning) {
+      throw new Error('Simulation is already running');
+    }
+    this.isRunning = true;
+  }
+
+  /**
+   * @private
+   */
+  private validateUntil(until: number | undefined): number | undefined {
+    if (until === undefined) return undefined;
+    if (typeof until !== 'number') {
+      throw new ValidationError(
+        `until must be a number (got ${typeof until})`,
+        { until, type: typeof until }
+      );
+    }
+    validateTime(until, 'until', true);
+    return until;
+  }
+
+  /**
+   * @private
+   */
+  private validateFactor(factor: number): void {
+    if (!(factor > 0) || !Number.isFinite(factor)) {
+      throw new ValidationError(
+        `factor must be a positive finite number of seconds per simulation unit (got ${String(factor)})`,
+        { factor }
+      );
+    }
+  }
+
+  /**
+   * @private
+   */
+  private buildResult(startEvents: number): SimulationResult {
+    return {
+      endTime: this.currentTime,
+      eventsProcessed: this.eventsProcessed - startEvents,
+      statistics: this.statistics,
+    };
+  }
+
+  /**
+   * @private
+   */
+  private emitProgress(startEvents: number): void {
+    if (!this.eventHandlers.get('progress')?.size) return;
+    const info: ProgressInfo = {
+      now: this.currentTime,
+      eventsProcessed: this.eventsProcessed - startEvents,
+      eventsInQueue: this.eventQueue.length,
+    };
+    this.emit('progress', info);
+  }
+
+  /**
    * Reset the simulation to its initial state.
    * Clears all scheduled events and resets the clock to initial time.
    * Interrupts all active processes with a reset error.
@@ -421,7 +744,10 @@ export class Simulation {
    * });
    * ```
    */
-  on(event: 'step' | 'complete' | 'error', handler: EventHandler): void {
+  on(
+    event: 'step' | 'complete' | 'error' | 'progress',
+    handler: EventHandler
+  ): void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, new Set());
     }

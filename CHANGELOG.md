@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18] - 2026-09-26
+
+### Added
+
+- **Non-blocking and real-time execution** ([#11](https://github.com/anesask/discrete-sim/issues/11)):
+  - `await sim.runAsync({ until?, batchSize?, signal? })` processes events in batches and yields to the event loop between them, so browser pages and servers stay responsive. Same result as `run()`.
+  - `sim.runRealtime({ factor?, until? })` paces events to wall-clock time (`factor` = seconds per simulation unit) and returns a handle with `pause()`, `resume()`, `stop()`, `setFactor()`, `isPaused`, `isActive` and a `done` promise.
+  - New `'progress'` lifecycle event with `{ now, eventsProcessed, eventsInQueue }`, emitted after every batch (async) or every event (real time).
+  - Calling `run()`, `runAsync()` or `runRealtime()` while another run is in flight throws.
+  - New exported types `RunAsyncOptions`, `RealtimeOptions`, `RealtimeHandle`, `ProgressInfo`.
+- The React integration guide shows a play/pause/speed control built on `runRealtime`.
+
 ## [0.1.17] - 2026-09-26
 
 ### Added
