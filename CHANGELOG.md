@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- **Agent instructions** ([#39](https://github.com/anesask/discrete-sim/issues/39)): `AGENTS.md` at the root documents commands, layout, rules and the release process for coding agents and contributors alike (`CLAUDE.md` points to it). `.claude/agents/` holds five reusable agent definitions (test-writer, example-author, docs-sync, release-checker, sim-reviewer) with a README; `.claude/settings.json` shares safe permissions. `.claude/` is now versioned except `settings.local.json`.
 - **README rewritten** ([#13](https://github.com/anesask/discrete-sim/issues/13)): down from 46 KB to a pitch, install, quick start, a table of building blocks with links, a "Coming from SimPy" mapping table, the examples list and development notes.
 - **Docs moved into the repository** under `docs/`: a guide with one page per building block (`docs/guide/`), the hand-written API reference (`docs/api/index.md`), the examples catalogue (`docs/examples.md`) and a new page on `SimEvent`. The Beginner's Guide moved from `GUIDE.md` to `docs/guide/beginners-guide.md`. These pages are the content the docs site will serve.
 
