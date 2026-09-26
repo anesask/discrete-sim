@@ -88,6 +88,7 @@ export {
   TimePoint,
   HistogramBin,
   ConfidenceInterval,
+  SampleTrackingOptions,
   BatchMeansResult,
   BatchMeansOptions,
   SummaryStatistics,

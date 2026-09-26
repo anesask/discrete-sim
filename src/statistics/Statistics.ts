@@ -1,6 +1,20 @@
 import { Simulation } from '../core/Simulation.js';
 import { ValidationError, validateFinite } from '../utils/validation.js';
 import { studentTCritical } from './distributions.js';
+import type { Random } from '../random/Random.js';
+
+/**
+ * Options for {@link Statistics.enableSampleTracking}.
+ */
+export interface SampleTrackingOptions {
+  /**
+   * Keep at most this many samples (reservoir sampling, Algorithm R). Mean,
+   * variance, min, max and the count stay exact; percentiles and histograms
+   * become estimates from a uniform random subset of the samples. Default:
+   * unlimited (every sample is kept).
+   */
+  maxSamples?: number;
+}
 
 /**
  * A confidence interval for the mean of a metric.
@@ -133,8 +147,10 @@ export class Statistics {
   private readonly recordTimeseries: Set<string> = new Set(); // Which metrics to record as timeseries
 
   // Sample tracking (for percentiles, variance, histograms)
-  private readonly samples: Map<string, number[]> = new Map(); // Raw sample values
+  private readonly samples: Map<string, number[]> = new Map(); // Raw sample values (or a reservoir)
   private readonly trackSamples: Set<string> = new Set(); // Which metrics to track samples for
+  private readonly reservoirLimits: Map<string, number> = new Map(); // maxSamples per metric
+  private reservoirRng?: Random; // Derived lazily from the simulation's generator
 
   // Welford's algorithm for online variance calculation
   private readonly sampleCounts: Map<string, number> = new Map(); // Number of samples
@@ -541,6 +557,7 @@ export class Statistics {
    * Note: This can use significant memory for metrics with many samples.
    *
    * @param name - Metric name
+   * @param options - `maxSamples` bounds memory with reservoir sampling
    *
    * @example
    * ```typescript
@@ -548,13 +565,39 @@ export class Statistics {
    * stats.recordSample('wait-time', 5.2);
    * stats.recordSample('wait-time', 3.1);
    * const p95 = stats.getPercentile('wait-time', 95);
+   *
+   * // Long run: keep a 10k-sample reservoir, percentiles become estimates
+   * stats.enableSampleTracking('queue-wait', { maxSamples: 10_000 });
    * ```
    */
-  enableSampleTracking(name: string): void {
+  enableSampleTracking(
+    name: string,
+    options: SampleTrackingOptions = {}
+  ): void {
+    if (options.maxSamples !== undefined) {
+      if (!Number.isInteger(options.maxSamples) || options.maxSamples < 2) {
+        throw new ValidationError(
+          `maxSamples must be an integer of at least 2 (got ${String(options.maxSamples)})`,
+          { maxSamples: options.maxSamples }
+        );
+      }
+      this.reservoirLimits.set(name, options.maxSamples);
+    } else {
+      this.reservoirLimits.delete(name);
+    }
     this.trackSamples.add(name);
     if (!this.samples.has(name)) {
       this.samples.set(name, []);
     }
+  }
+
+  /**
+   * True when percentiles and histograms for this metric come from a
+   * reservoir rather than from every sample.
+   */
+  isSampleReservoir(name: string): boolean {
+    const limit = this.reservoirLimits.get(name);
+    return limit !== undefined && (this.sampleCounts.get(name) ?? 0) > limit;
   }
 
   /**
@@ -593,11 +636,23 @@ export class Statistics {
       return; // Silently ignore if not tracking samples for this metric
     }
 
-    // Store raw sample (for percentiles and histograms)
+    // Store raw sample (for percentiles and histograms), or a reservoir of them
     if (!this.samples.has(name)) {
       this.samples.set(name, []);
     }
-    this.samples.get(name)!.push(value);
+    const stored = this.samples.get(name)!;
+    const limit = this.reservoirLimits.get(name);
+    if (limit === undefined || stored.length < limit) {
+      stored.push(value);
+    } else {
+      // Algorithm R: the k-th sample (0-based count seen so far) replaces a
+      // random slot with probability limit / (k + 1)
+      const seen = this.sampleCounts.get(name) ?? 0;
+      const slot = this.reservoir().randint(0, seen);
+      if (slot < limit) {
+        stored[slot] = value;
+      }
+    }
 
     // Update Welford's algorithm statistics (for mean and variance)
     const count = (this.sampleCounts.get(name) || 0) + 1;
@@ -631,6 +686,18 @@ export class Statistics {
     // Invalidate caches that depend on sorted order
     this.sortedSamplesCache.delete(name);
     this.histogramCache.delete(name);
+  }
+
+  /**
+   * Generator for reservoir sampling, derived from the simulation's own
+   * generator so runs stay reproducible.
+   * @private
+   */
+  private reservoir(): Random {
+    if (!this.reservoirRng) {
+      this.reservoirRng = this.simulation.random.stream('statistics-reservoir');
+    }
+    return this.reservoirRng;
   }
 
   /**
@@ -925,6 +992,12 @@ export class Statistics {
       );
     }
 
+    if (this.isSampleReservoir(name)) {
+      throw new ValidationError(
+        `Batch means need every sample in recording order, but '${name}' keeps a reservoir (maxSamples). Track it without maxSamples for batch means.`,
+        { metric: name }
+      );
+    }
     const sampleData = this.samples.get(name) ?? [];
     if (sampleData.length < batches) {
       throw new ValidationError(
