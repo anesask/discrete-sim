@@ -40,7 +40,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # AI Assistant artifacts
-.claude/
+.claude/settings.local.json
 .claude-*
 claude-*.log
 CLAUDE_ARTIFACTS/

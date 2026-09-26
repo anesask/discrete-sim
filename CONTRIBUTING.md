@@ -541,6 +541,10 @@ Breaking changes require:
 - Deprecation warnings where possible
 - Update to CHANGELOG.md
 
+## Working with AI Agents
+
+If you use a coding agent (Claude Code, Codex, Cursor and similar), point it at [AGENTS.md](AGENTS.md): it holds the commands, layout, rules and release process in one place. Reusable agent definitions for tests, examples, docs, release checks and simulation-semantics review live in [.claude/agents/](.claude/agents/README.md). Agents follow the same gate and PR process as everyone else.
+
 ## Questions?
 
 - Open an issue for bugs or feature requests
