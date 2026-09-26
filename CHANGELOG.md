@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **Property-based tests** ([#57](https://github.com/anesask/discrete-sim/issues/57)) with fast-check under `tests/property/`, run by `npm test`: event ordering for arbitrary schedules; resource unit conservation and clean queues under random programs of requests, holds, patience timeouts (anyOf) and interrupts; Buffer, Store and Batch conservation; identical traces for identical seeds; distinct random streams. Failures print the fast-check seed for replay.
 - **Benchmark suite** ([#14](https://github.com/anesask/discrete-sim/issues/14)): `npm run bench` runs seven representative workloads (event queue, scheduled events, M/M/1, concurrent processes, priority queue, statistics, random) and writes `benchmarks/latest.json`; `benchmarks/baseline.json` records the reference numbers. The timing suites left the default test run earlier (`npm run test:perf`).
 - Event queue heap swaps no longer allocate a temporary array.
 

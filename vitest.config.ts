@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Property-based suites run many cases per test
+    testTimeout: 30_000,
     // Wall-clock timing suites are flaky on shared CI runners; run them with `npm run test:perf`.
     exclude: [
       '**/node_modules/**',
