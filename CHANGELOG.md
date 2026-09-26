@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Same-time event ordering** ([#1](https://github.com/anesask/discrete-sim/issues/1)): Events scheduled at the same time and priority now always execute in insertion (FIFO) order. Previously the tie-breaker compared event ID strings, so `event-10` sorted before `event-9` and any batch of more than 10 simultaneous events ran out of order. The tie-breaker is now a numeric insertion sequence, which also removes the `localeCompare` cost from the event queue hot path (popping 100k same-time events: ~800 ms before, ~65 ms after). Models with many simultaneous events may produce different, now correct, output.
+
 ## [0.1.8] - 2026-02-15
 
 ### Added

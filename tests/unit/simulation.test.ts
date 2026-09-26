@@ -799,6 +799,19 @@ describe('Simulation', () => {
 
       expect(order).toEqual([1, 2, 3]);
     });
+
+    it('should run many same-time, same-priority events in scheduling order (regression #1)', () => {
+      const order: number[] = [];
+      const n = 25;
+
+      for (let i = 0; i < n; i++) {
+        sim.schedule(5, () => order.push(i));
+      }
+
+      sim.run();
+
+      expect(order).toEqual(Array.from({ length: n }, (_, i) => i));
+    });
   });
 
   describe('statistics', () => {

@@ -197,8 +197,11 @@ describe('SimEvent', () => {
       sim.run();
 
       expect(arrivals).toEqual([5, 10, 15]);
-      // All depart at same time (coordinator checks at 16 after last arrival at 15)
-      expect(departures).toEqual([16, 16, 16]);
+      // All depart at the same time. The last worker's timeout was scheduled
+      // at t=0 and the coordinator's poll for t=15 was scheduled at t=14, so
+      // FIFO tie-breaking runs the worker first and the coordinator sees all
+      // three waiting at t=15.
+      expect(departures).toEqual([15, 15, 15]);
     });
 
     it('should support recurring events with reset', () => {
@@ -390,14 +393,23 @@ describe('SimEvent', () => {
   describe('Realistic Use Case: Shift Change', () => {
     it('should simulate shift change coordination', () => {
       const shiftChange = new SimEvent(sim, 'shift-change');
-      const workerLog: Array<{ worker: string; action: string; time: number }> = [];
+      const workerLog: Array<{ worker: string; action: string; time: number }> =
+        [];
 
       // Morning shift workers
       ['Alice', 'Bob'].forEach((name) => {
         sim.process(function* () {
-          workerLog.push({ worker: name, action: 'start-morning', time: sim.now });
+          workerLog.push({
+            worker: name,
+            action: 'start-morning',
+            time: sim.now,
+          });
           yield shiftChange.wait();
-          workerLog.push({ worker: name, action: 'end-morning', time: sim.now });
+          workerLog.push({
+            worker: name,
+            action: 'end-morning',
+            time: sim.now,
+          });
         });
       });
 
@@ -405,7 +417,11 @@ describe('SimEvent', () => {
       ['Charlie', 'Dana'].forEach((name) => {
         sim.process(function* () {
           yield shiftChange.wait();
-          workerLog.push({ worker: name, action: 'start-evening', time: sim.now });
+          workerLog.push({
+            worker: name,
+            action: 'start-evening',
+            time: sim.now,
+          });
         });
       });
 
@@ -418,13 +434,21 @@ describe('SimEvent', () => {
       sim.run();
 
       // Morning shift starts at 0
-      expect(workerLog.filter(l => l.action === 'start-morning')).toHaveLength(2);
-      expect(workerLog.filter(l => l.action === 'start-morning' && l.time === 0)).toHaveLength(2);
+      expect(
+        workerLog.filter((l) => l.action === 'start-morning')
+      ).toHaveLength(2);
+      expect(
+        workerLog.filter((l) => l.action === 'start-morning' && l.time === 0)
+      ).toHaveLength(2);
 
       // All shift changes happen at 480
-      expect(workerLog.filter(l => l.time === 480)).toHaveLength(4);
-      expect(workerLog.filter(l => l.action === 'end-morning')).toHaveLength(2);
-      expect(workerLog.filter(l => l.action === 'start-evening')).toHaveLength(2);
+      expect(workerLog.filter((l) => l.time === 480)).toHaveLength(4);
+      expect(workerLog.filter((l) => l.action === 'end-morning')).toHaveLength(
+        2
+      );
+      expect(
+        workerLog.filter((l) => l.action === 'start-evening')
+      ).toHaveLength(2);
     });
   });
 });
