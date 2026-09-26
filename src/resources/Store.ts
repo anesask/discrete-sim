@@ -258,6 +258,25 @@ export class Store<T = any> {
     this.getQueueLengthSum = 0;
     this.getQueueSampleCount = 0;
     this.lastSampleTime = simulation.now;
+    simulation._registerCollector(this);
+  }
+
+  /**
+   * Start the statistics over from the current time; stored items and the
+   * waiting requests are untouched.
+   */
+  resetStatistics(): void {
+    this.totalPutsCount = 0;
+    this.totalGetsCount = 0;
+    this.totalPutWaitTime = 0;
+    this.totalGetWaitTime = 0;
+    this.sizeSum = 0;
+    this.sizeSampleCount = 0;
+    this.putQueueLengthSum = 0;
+    this.putQueueSampleCount = 0;
+    this.getQueueLengthSum = 0;
+    this.getQueueSampleCount = 0;
+    this.lastSampleTime = this.simulation.now;
   }
 
   /**

@@ -9,6 +9,7 @@ export {
   RealtimeHandle,
   ProgressInfo,
   SimulationEvents,
+  StatisticsCollector,
   TraceEventBase,
   ResourceTraceEvent,
   ProcessTraceEvent,
