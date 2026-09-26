@@ -71,4 +71,11 @@ Plain, factual, no attribution footers or co-author trailers, no emojis. Referen
 
 ## Agents
 
-Reusable agent definitions for recurring tasks live in `.claude/agents/`; see its README for when to use each one.
+Reusable briefs for recurring tasks live in `.claude/agents/` (see its README). They are plain markdown with a YAML header: Claude Code loads them as subagents automatically; in any other tool, paste the body of a brief as the task prompt.
+
+## Tool notes
+
+- **Claude Code** reads `CLAUDE.md`, which imports this file. `.claude/settings.json` pre-approves the safe commands (npm scripts, npx tsx/vitest/eslint/prettier/tsc, read-only git); anything else asks. Machine-local overrides go in `.claude/settings.local.json`, which is git-ignored.
+- **Codex CLI** reads `AGENTS.md` from the repository root on its own; nothing else to install. Permissions are not a repository setting: pick the approval and sandbox mode when you start it (for example `codex --full-auto` for edits plus commands inside the workspace with approval on failure, or the default mode that asks before running commands). The gate commands above only touch the workspace, so a workspace-write sandbox is enough.
+- **Cursor, Windsurf, Copilot and similar** also read `AGENTS.md`; if a tool wants its own file name, point it at this one rather than copying the content.
+- **Any tool**: the rules in this file are the contract. Commit and PR text: no attribution footers, no emojis, plain hyphens.

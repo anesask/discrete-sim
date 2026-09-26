@@ -10,6 +10,10 @@ Reusable agent definitions for recurring work in this repository. Claude Code lo
 | `release-checker` | You are about to cut a release | Gate results, version and CHANGELOG consistency, draft release notes |
 | `sim-reviewer` | A PR touches `src/core` or `src/resources` | Review of DES semantics: determinism, cancellation, reentrancy, statistics |
 
+## Using the briefs outside Claude Code
+
+Each file is ordinary markdown with a small YAML header. Codex CLI and other tools do not load this folder automatically; open the brief you need and paste its body (below the header) as the task, together with a pointer to `AGENTS.md`. The header's `tools` line is a hint about what the task needs, not a permission setting.
+
 ## Conventions every agent follows
 
 - Read `AGENTS.md` first; it is the source of truth for commands, layout and rules.
