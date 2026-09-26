@@ -321,9 +321,13 @@ yield* timeout(random.triangular(5, 15, 8));
 
 ### Common Random Distributions
 - `random.uniform(min, max)`: Equal probability
-- `random.exponential(lambda)`: Arrival/service times
+- `random.exponential(mean)`: Arrival/service times (memoryless)
 - `random.normal(mean, stdDev)`: Natural variation
 - `random.triangular(min, max, mode)`: Estimates with uncertainty
+- `random.lognormal(mu, sigma)`: Right-skewed service or repair times
+- `random.weibull(shape, scale)`: Time to failure
+- `random.discrete([{ value, weight }])`: Customer types, routing choices
+- `random.empirical(samples, { interpolate: true })`: Draw from data you collected
 
 ## Learning Resources
 

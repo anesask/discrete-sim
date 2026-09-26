@@ -61,7 +61,7 @@ export {
 } from './statistics/Statistics.js';
 
 // Random number generation
-export { Random } from './random/Random.js';
+export { Random, WeightedValue, EmpiricalOptions } from './random/Random.js';
 
 // Validation utilities
 export { ValidationError } from './utils/validation.js';
