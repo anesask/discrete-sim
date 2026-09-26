@@ -25,8 +25,17 @@ export {
   WaitForOptions,
   PreemptionError,
   ConditionTimeoutError,
+  ProcessDoneRequest,
+  ProcessDoneResult,
+  AnyOfRequest,
+  AnyOfResult,
+  AllOfRequest,
+  Waitable,
+  WaitableInput,
   timeout,
   waitFor,
+  anyOf,
+  allOf,
 } from './core/Process.js';
 
 // Resource management
