@@ -82,8 +82,10 @@ jobs:
           if-no-files-found: warn
 
   version-bump:
-    name: Version bumped
-    # PRs that change only CI or repo config carry the 'no-bump' label instead of a version bump.
+    name: Changelog updated
+    # Every PR records its change under "## [Unreleased]" in CHANGELOG.md. Releases are
+    # separate, deliberate PRs that bump package.json and rename that section to the
+    # version. PRs that change only CI or repo config carry the 'no-bump' label.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -91,7 +93,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compare package.json version with base branch
+      - name: Check CHANGELOG and version consistency
         env:
           BASE_REF: ${{ github.base_ref }}
           HAS_NO_BUMP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no-bump') }}
@@ -99,21 +101,34 @@ jobs:
           set -e
           base=$(git show "origin/${BASE_REF}:package.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
           head=$(node -p "require('./package.json').version")
-          echo "base: $base"
-          echo "head: $head"
+          echo "base version: $base"
+          echo "head version: $head"
           if [ "$HAS_NO_BUMP_LABEL" = "true" ]; then
             echo "PR carries the no-bump label, skipping the check."
             exit 0
           fi
-          if [ "$base" = "$head" ]; then
-            echo "::error::package.json version ($head) is unchanged. Every merge to main bumps the version (npm version patch|minor --no-git-tag-version) or carries the 'no-bump' label."
+          if git diff --quiet "origin/${BASE_REF}...HEAD" -- CHANGELOG.md; then
+            echo "::error::CHANGELOG.md was not updated. Add your change under '## [Unreleased]' (or label the PR 'no-bump' if it touches only CI/config)."
             exit 1
           fi
-          if ! grep -q "^## \[$head\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no '## [$head]' section for the new version."
-            exit 1
+          if [ "$base" != "$head" ]; then
+            # Release PR: the new version needs its own section and nothing may be left unreleased
+            if ! grep -q "^## \[$head\]" CHANGELOG.md; then
+              echo "::error::Release PR bumps to $head but CHANGELOG.md has no '## [$head]' section."
+              exit 1
+            fi
+            if awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f && NF' CHANGELOG.md | grep -q .; then
+              echo "::error::Release PR still has entries under '## [Unreleased]'. Move them into the $head section."
+              exit 1
+            fi
+            echo "Release PR: $base -> $head with a matching CHANGELOG section."
+          else
+            if ! grep -q "^## \[Unreleased\]" CHANGELOG.md; then
+              echo "::error::CHANGELOG.md changed but has no '## [Unreleased]' section to hold the entry."
+              exit 1
+            fi
+            echo "CHANGELOG updated under [Unreleased]; version unchanged ($head)."
           fi
-          echo "Version bumped $base -> $head and CHANGELOG has a section for it."
 
   ci-passed:
     name: CI passed

@@ -14,6 +14,6 @@
 
 - [ ] Tests added or updated, `npm test` passes
 - [ ] `npm run lint`, `npm run typecheck`, `npm run format:check` pass
-- [ ] Version bumped in `package.json` (`npm version patch|minor --no-git-tag-version`) or PR labeled `no-bump`
-- [ ] `CHANGELOG.md` has a section for the new version
+- [ ] Change recorded under `## [Unreleased]` in `CHANGELOG.md` (or PR labeled `no-bump` for CI/config-only changes)
+- [ ] Release PRs only: version bumped in `package.json` and `[Unreleased]` renamed to the version
 - [ ] README / GUIDE updated if the public API changed
