@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`resource.release(request)`** ([#49](https://github.com/anesask/discrete-sim/issues/49)): pass the granted `ResourceRequest` to get ownership checks. Releasing a request that was never granted, was already released, was preempted, or belongs to another resource throws a `ValidationError` instead of silently corrupting the unit count. `request.isGranted`, `isReleased`, `isPreempted` and `holdsUnit` expose the state. The bare `release()` still works as the unchecked form.
 - **Independent random streams**: `rng.stream(name)` derives a reproducible generator per source of randomness; `rng.spawn()` derives a child from the current output; `getState()` / `setState()` checkpoint a generator; `Random.randomSeed()` gives a fresh 32-bit seed.
 - **`sim.random` and `sim.seed`** ([#48](https://github.com/anesask/discrete-sim/issues/48)): the simulation owns a generator seeded from `randomSeed`; `sim.seed` is always defined so a run can be reproduced; `reset()` reseeds it.
 

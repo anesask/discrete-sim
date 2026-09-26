@@ -59,6 +59,45 @@ export class ResourceRequest {
     }
     // Note: Negative priorities are allowed (lower number = higher priority)
   }
+
+  private granted = false;
+  private released = false;
+  private preempted = false;
+
+  /** True once the resource granted this request a unit */
+  get isGranted(): boolean {
+    return this.granted;
+  }
+
+  /** True after release(request) returned the unit */
+  get isReleased(): boolean {
+    return this.released;
+  }
+
+  /** True if a higher-priority request took the unit away (preemptive resources) */
+  get isPreempted(): boolean {
+    return this.preempted;
+  }
+
+  /** True while this request holds a unit of the resource */
+  get holdsUnit(): boolean {
+    return this.granted && !this.released && !this.preempted;
+  }
+
+  /** @internal */
+  _markGranted(): void {
+    this.granted = true;
+  }
+
+  /** @internal */
+  _markReleased(): void {
+    this.released = true;
+  }
+
+  /** @internal */
+  _markPreempted(): void {
+    this.preempted = true;
+  }
 }
 
 /**
@@ -73,6 +112,8 @@ interface QueuedRequest {
   onAcquired: () => void;
   /** Process making the request (for preemption) */
   process?: Process;
+  /** The request object, when known (for ownership tracking) */
+  request?: ResourceRequest;
 }
 
 /**
@@ -85,6 +126,8 @@ interface ActiveUser {
   process: Process;
   /** Time when resource was acquired */
   acquiredAt: number;
+  /** The request that holds the unit, when known */
+  request?: ResourceRequest;
 }
 
 /**
@@ -194,7 +237,12 @@ export class Resource {
    * @param process - Process making the request (for preemption)
    * @internal
    */
-  _acquire(priority: number, onAcquired: () => void, process?: Process): void {
+  _acquire(
+    priority: number,
+    onAcquired: () => void,
+    process?: Process,
+    request?: ResourceRequest
+  ): void {
     // Update statistics BEFORE changing state
     this.updateStatistics();
 
@@ -203,6 +251,7 @@ export class Resource {
     if (this.inUseCount < this.capacityValue) {
       // Resource available, grant immediately
       this.inUseCount++;
+      request?._markGranted();
 
       // Track active user if preemptive resource
       if (this.options.preemptive && process) {
@@ -210,6 +259,7 @@ export class Resource {
           priority,
           process,
           acquiredAt: this.simulation.now,
+          request,
         });
       }
 
@@ -225,20 +275,22 @@ export class Resource {
 
         // Grant resource to new request
         this.inUseCount++;
+        request?._markGranted();
         this.activeUsers.push({
           priority,
           process,
           acquiredAt: this.simulation.now,
+          request,
         });
 
         onAcquired();
       } else {
         // Can't preempt, add to queue
-        this.insertIntoQueue(priority, onAcquired, process);
+        this.insertIntoQueue(priority, onAcquired, process, request);
       }
     } else {
       // Non-preemptive or no process reference, add to queue
-      this.insertIntoQueue(priority, onAcquired, process);
+      this.insertIntoQueue(priority, onAcquired, process, request);
     }
   }
 
@@ -268,13 +320,15 @@ export class Resource {
   private insertIntoQueue(
     priority: number,
     onAcquired: () => void,
-    process?: Process
+    process?: Process,
+    request?: ResourceRequest
   ): void {
     const newRequest: QueuedRequest = {
       requestTime: this.simulation.now,
       priority,
       onAcquired,
       process,
+      request,
     };
 
     switch (this.queueConfig.type) {
@@ -374,6 +428,7 @@ export class Resource {
 
     this.inUseCount--;
     this.totalPreemptionsCount++;
+    user.request?._markPreempted();
 
     // Interrupt the process
     user.process.interrupt(
@@ -386,15 +441,63 @@ export class Resource {
   /**
    * Release the resource, making it available for the next queued request.
    * Throws an error if attempting to release more than currently in use.
-   * @param process - Process releasing the resource (for preemptive resources)
+   * Pass the request that was granted to get ownership checks: releasing a
+   * request that never held a unit, was already released, or was preempted
+   * throws a ValidationError instead of silently corrupting the count.
+   *
+   * @param target - The granted ResourceRequest (checked), or for the legacy
+   *                 unchecked form nothing / the releasing Process
    */
-  release(process?: Process): void {
+  release(target?: ResourceRequest | Process): void {
+    let process: Process | undefined;
+    let request: ResourceRequest | undefined;
+    if (target instanceof ResourceRequest) {
+      request = target;
+      if (request.resource !== this) {
+        throw new ValidationError(
+          `Cannot release resource '${this.options.name}' with a request made on '${request.resource.name}'`,
+          {
+            resource: this.options.name,
+            requestResource: request.resource.name,
+          }
+        );
+      }
+      if (!request.isGranted) {
+        throw new ValidationError(
+          `Cannot release resource '${this.options.name}': this request was never granted (yield it first)`,
+          { resource: this.options.name }
+        );
+      }
+      if (request.isPreempted) {
+        throw new ValidationError(
+          `Cannot release resource '${this.options.name}': this request was preempted and its unit already reassigned`,
+          { resource: this.options.name }
+        );
+      }
+      if (request.isReleased) {
+        throw new ValidationError(
+          `Cannot release resource '${this.options.name}': this request was already released`,
+          { resource: this.options.name }
+        );
+      }
+    } else {
+      process = target;
+    }
+
     // Validate release with helpful error message
     validateRelease(1, this.inUseCount, this.options.name);
+    request?._markReleased();
 
     // Remove from active users if preemptive
     if (this.options.preemptive) {
-      if (process) {
+      if (request) {
+        const userIndex = this.activeUsers.findIndex(
+          (u) => u.request === request
+        );
+        if (userIndex >= 0) {
+          this.activeUsers.splice(userIndex, 1);
+        }
+      } else if (process) {
         // If process provided, remove it specifically
         const userIndex = this.activeUsers.findIndex(
           (u) => u.process === process
@@ -442,12 +545,15 @@ export class Resource {
       const waitTime = this.simulation.now - request.requestTime;
       this.totalWaitTime += waitTime;
 
+      request.request?._markGranted();
+
       // Add to active users if preemptive
       if (this.options.preemptive && request.process) {
         this.activeUsers.push({
           priority: request.priority,
           process: request.process,
           acquiredAt: this.simulation.now,
+          request: request.request,
         });
       }
 
