@@ -756,7 +756,7 @@ export class Process {
       };
     }
     if (waitable instanceof ResourceRequest) {
-      waitable.resource._acquire(waitable.priority, onComplete, this);
+      waitable.resource._acquire(waitable.priority, onComplete, this, waitable);
       return () => {
         waitable.resource._cancelAcquire(onComplete);
       };
@@ -839,7 +839,7 @@ export class Process {
    */
   private undoLateCompletion(waitable: Waitable): void {
     if (waitable instanceof ResourceRequest) {
-      waitable.resource.release(this);
+      waitable.resource.release(waitable);
     } else if (waitable instanceof BufferGetRequest) {
       waitable.buffer._put(waitable.amount, 0, () => {});
     } else if (waitable instanceof BufferPutRequest) {
