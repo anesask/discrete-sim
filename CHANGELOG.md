@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.14] - 2026-09-26
+
+### Added
+
+- **More distributions in `Random`** ([#8](https://github.com/anesask/discrete-sim/issues/8)): `lognormal(mu, sigma)` with `Random.lognormalParams(mean, stdDev)`, `gamma(shape, scale)` (Marsaglia-Tsang), `erlang(k, mean)`, `weibull(shape, scale)`, `beta(alpha, beta)`, `bernoulli(p)`, `geometric(p)`, `weightedChoice(items, weights)`, `discrete([{ value, weight }])` and `empirical(samples, { interpolate })`. All are seeded from the same generator, validate their parameters with `ValidationError`, and document mean/variance in JSDoc. New exported types `WeightedValue<T>` and `EmpiricalOptions`.
+
+### Fixed
+
+- `exponential()`, `normal()` and the new log-based transforms draw from the open interval (0, 1), so they can no longer return `Infinity` or `NaN` on the one generator state per period that yields exactly 0.
+
 ## [0.1.13] - 2026-09-26
 
 ### Added
