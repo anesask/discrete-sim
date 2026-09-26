@@ -566,6 +566,22 @@ export class Process {
   }
 
   /**
+   * Wait for this process to finish and get the outcome back, typed.
+   * Use with yield* from another process.
+   *
+   * @example
+   * ```typescript
+   * const outcome = yield* truck.join();
+   * if (outcome.state === 'interrupted') { ... }
+   * ```
+   */
+  *join(): Generator<ProcessDoneRequest, ProcessDoneResult, void> {
+    const request = this.done();
+    yield request;
+    return request.result!;
+  }
+
+  /**
    * Register a callback for when this process finishes. Fires at the current
    * simulation time (0-delay event) if the process has already finished.
    *

@@ -323,6 +323,33 @@ export class Store<T = any> {
   }
 
   /**
+   * Get an item and return it, typed. Use with yield*.
+   *
+   * @example
+   * ```typescript
+   * const pallet = yield* warehouse.takeItem((p) => p.destination === 'NYC');
+   * ```
+   */
+  *takeItem(
+    filter?: (item: T) => boolean,
+    priority: number = 0
+  ): Generator<StoreGetRequest<T>, T, void> {
+    const request = this.get(filter, priority);
+    yield request;
+    return request.retrievedItem as T;
+  }
+
+  /**
+   * Put an item, resuming once it is stored. Use with yield*.
+   */
+  *putItem(
+    item: T,
+    priority: number = 0
+  ): Generator<StorePutRequest<T>, void, void> {
+    yield this.put(item, priority);
+  }
+
+  /**
    * Internal method called by Process to actually put an item.
    * @param item - Item to put
    * @param priority - Request priority (used by a 'priority' put queue)

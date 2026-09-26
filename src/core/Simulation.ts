@@ -764,7 +764,14 @@ export class Simulation {
    * ```
    */
   on(
-    event: 'step' | 'complete' | 'error' | 'progress',
+    event:
+      | 'step'
+      | 'complete'
+      | 'error'
+      | 'progress'
+      | 'trace:resource'
+      | 'trace:process'
+      | 'trace:simevent',
     handler: EventHandler
   ): void {
     if (!this.eventHandlers.has(event)) {

@@ -151,6 +151,21 @@ export class SimEvent {
   }
 
   /**
+   * Wait for the event and return the value it was triggered with, typed by
+   * the caller. Use with yield*.
+   *
+   * @example
+   * ```typescript
+   * const payload = yield* alarm.waitValue<{ severity: string }>();
+   * ```
+   */
+  *waitValue<V = unknown>(): Generator<SimEventRequest, V, void> {
+    const request = this.wait();
+    yield request;
+    return request.value as V;
+  }
+
+  /**
    * Trigger the event, resuming all waiting processes.
    * If the event is already triggered, this is a no-op.
    * All waiting processes will resume in the same time step (priority order).

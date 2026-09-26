@@ -297,7 +297,7 @@ describe('Buffer', () => {
       const buffer = new Buffer(sim, 100); // Empty
       const completionOrder: number[] = [];
 
-      function* consumer(id: number): Generator {
+      function* consumer(id: number) {
         yield buffer.get(10);
         completionOrder.push(id);
       }
@@ -497,7 +497,7 @@ describe('Buffer', () => {
       const buffer = new Buffer(sim, 100);
       let consumed = 0;
 
-      function* producer(amount: number): Generator {
+      function* producer(amount: number) {
         for (let i = 0; i < 3; i++) {
           yield* timeout(2);
           yield buffer.put(amount);

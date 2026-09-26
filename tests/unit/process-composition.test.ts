@@ -251,6 +251,7 @@ describe('Process composition', () => {
 
     it('rejects empty branch lists, conditions and unknown values', () => {
       expect(() => new AnyOfRequest([])).toThrow(ValidationError);
+      // @ts-expect-error conditions are not waitable
       expect(() => new AnyOfRequest([waitFor(() => true)])).toThrow(
         ValidationError
       );
@@ -374,8 +375,8 @@ describe('Process composition', () => {
   });
 
   it('still rejects unknown yielded values', () => {
+    // @ts-expect-error deliberately wrong yielded value
     const proc = new Process(sim, function* () {
-      // @ts-expect-error deliberately wrong
       yield 42;
     });
     expect(() => proc.start()).toThrow(ValidationError);

@@ -13,12 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- _*Typed yield* helpers_* ([#51](https://github.com/anesask/discrete-sim/issues/51)): every request has a `yield*` form that returns its value with a precise type, so no more `request.retrievedItem!`: `resource.acquire(priority)` returns the granted request, `store.takeItem(filter, priority)` returns the item, `store.putItem`, `buffer.takeAmount` / `buffer.putAmount`, `batch.takeBatch()` returns `{ items, isPartial }`, `batch.putItem`, `event.waitValue<V>()` returns the trigger value, `process.join()` returns how the process ended. The request-object forms remain for `anyOf` / `allOf`.
 - **`resource.release(request)`** ([#49](https://github.com/anesask/discrete-sim/issues/49)): pass the granted `ResourceRequest` to get ownership checks. Releasing a request that was never granted, was already released, was preempted, or belongs to another resource throws a `ValidationError` instead of silently corrupting the unit count. `request.isGranted`, `isReleased`, `isPreempted` and `holdsUnit` expose the state. The bare `release()` still works as the unchecked form.
 - **Independent random streams**: `rng.stream(name)` derives a reproducible generator per source of randomness; `rng.spawn()` derives a child from the current output; `getState()` / `setState()` checkpoint a generator; `Random.randomSeed()` gives a fresh 32-bit seed.
 - **`sim.random` and `sim.seed`** ([#48](https://github.com/anesask/discrete-sim/issues/48)): the simulation owns a generator seeded from `randomSeed`; `sim.seed` is always defined so a run can be reproduced; `reset()` reseeds it.
 
 ### Fixed
 
+- `sim.on()` now accepts the trace event names (`trace:resource`, `trace:process`, `trace:simevent`) in its type; they worked at runtime but did not type-check.
 - `new Simulation({ randomSeed })` was stored and never used; it now seeds `sim.random`.
 
 ### Internal
