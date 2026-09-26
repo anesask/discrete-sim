@@ -11,6 +11,14 @@ export {
 } from './core/Simulation.js';
 export { EventQueue, Event } from './core/EventQueue.js';
 
+// Time-varying parameters
+export {
+  Schedule,
+  ScheduleSegment,
+  ScheduleOptions,
+  OnChangeOptions,
+} from './core/Schedule.js';
+
 // Event coordination
 export { SimEvent, SimEventRequest } from './core/SimEvent.js';
 

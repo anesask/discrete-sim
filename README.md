@@ -297,6 +297,48 @@ When preemption occurs:
 - The process can catch this error to handle cleanup
 - Statistics track the total number of preemptions
 
+### Schedules and Time-Varying Capacity (v0.1.19+)
+
+Real systems have rush hours and shifts. A `Schedule` holds a piecewise-constant value over simulation time, optionally repeating every `period`:
+
+```typescript
+import { Schedule } from 'discrete-sim';
+
+const arrivalRate = new Schedule<number>(sim, {
+  period: 24, // repeats daily
+  segments: [
+    { from: 0, to: 8, value: 0.5 },
+    { from: 8, to: 12, value: 5 }, // morning rush
+    { from: 12, to: 13, value: 2 },
+    { from: 13, to: 17, value: 4 },
+    { from: 17, to: 24, value: 0.5 },
+  ],
+});
+
+function* arrivals() {
+  while (true) {
+    yield* timeout(rng.exponential(1 / arrivalRate.current));
+    sim.process(customer);
+  }
+}
+
+// Staffing follows a shift plan; capacity changes while the simulation runs
+const staffing = new Schedule<number>(sim, {
+  period: 24,
+  segments: [
+    { from: 0, to: 9, value: 1 },
+    { from: 9, to: 17, value: 4 },
+    { from: 17, to: 24, value: 2 },
+  ],
+});
+staffing.onChange((n) => tellers.setCapacity(n), { immediate: true });
+
+// Or react to boundaries inside your own process
+const next = yield * staffing.waitForChange(); // resumes at the next boundary
+```
+
+`resource.setCapacity(n)` grants waiting requests immediately when capacity grows. When it shrinks, nobody is interrupted: surplus units are shed as they are released, and queued requests wait until usage is back under the new capacity. Segments may hold objects to bundle several parameters. Non-periodic schedules keep their last value; gaps return `defaultValue` or throw.
+
 ### Buffer (v0.1.6+)
 
 Model resources that store **homogeneous quantities** (tokens) rather than discrete capacity units. Perfect for fuel tanks, money, raw materials, bandwidth, or any inventory of identical items.
@@ -975,14 +1017,43 @@ class Resource {
     options?: ResourceOptions
   );
 
-  request(): ResourceRequest;
+  request(priority?: number): ResourceRequest;
   release(): void;
+  setCapacity(capacity: number): void; // v0.1.19+
 
+  get capacity(): number;
   get inUse(): number;
   get available(): number;
   get queueLength(): number;
   get utilization(): number;
   get stats(): ResourceStatistics;
+}
+```
+
+### Schedule
+
+```typescript
+class Schedule<T> {
+  constructor(
+    simulation: Simulation,
+    options: {
+      segments: { from: number; to: number; value: T }[];
+      period?: number; // repeat every period; omit for a one-off schedule
+      defaultValue?: T; // value in gaps (otherwise gaps throw)
+    }
+  );
+
+  get current(): T;
+  at(time: number): T;
+  get isPeriodic(): boolean;
+  get nextChange(): number; // Infinity when none is left
+  nextChangeAfter(time: number): number;
+  get hasMoreChanges(): boolean;
+  waitForChange(): Generator<Timeout, T, void>; // use with yield*
+  onChange(
+    handler: (value: T, time: number) => void,
+    options?: { immediate?: boolean }
+  ): Process;
 }
 ```
 
