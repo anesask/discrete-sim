@@ -212,6 +212,34 @@ export class Batch<T = any> {
     return new BatchTakeRequest(this);
   }
 
+  /**
+   * Take the next batch and get its items back, typed. Use with yield*.
+   *
+   * @example
+   * ```typescript
+   * const { items, isPartial } = yield* oven.takeBatch();
+   * ```
+   */
+  *takeBatch(): Generator<
+    BatchTakeRequest<T>,
+    { items: T[]; isPartial: boolean },
+    void
+  > {
+    const request = this.take();
+    yield request;
+    return {
+      items: request.items ?? [],
+      isPartial: request.isPartial ?? false,
+    };
+  }
+
+  /**
+   * Put an item, resuming once it is accepted. Use with yield*.
+   */
+  *putItem(item: T): Generator<BatchPutRequest<T>, void, void> {
+    yield this.put(item);
+  }
+
   /** Items per full batch */
   get batchSize(): number {
     return this.batchSizeValue;

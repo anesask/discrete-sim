@@ -231,6 +231,25 @@ export class Resource {
   }
 
   /**
+   * Acquire a unit and get the granted request back, typed. Use with yield*.
+   * Equivalent to `const req = resource.request(p); yield req;`.
+   *
+   * @example
+   * ```typescript
+   * const grant = yield* server.acquire();
+   * yield* timeout(5);
+   * server.release(grant);
+   * ```
+   */
+  *acquire(
+    priority: number = 0
+  ): Generator<ResourceRequest, ResourceRequest, void> {
+    const request = this.request(priority);
+    yield request;
+    return request;
+  }
+
+  /**
    * Internal method called by Process to actually request the resource.
    * @param priority - Request priority (lower = higher priority)
    * @param onAcquired - Callback to invoke when resource is acquired

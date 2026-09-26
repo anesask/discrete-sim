@@ -290,6 +290,26 @@ export class Buffer {
   }
 
   /**
+   * Take tokens, resuming once they are available. Use with yield*.
+   */
+  *takeAmount(
+    amount: number,
+    priority: number = 0
+  ): Generator<BufferGetRequest, void, void> {
+    yield this.get(amount, priority);
+  }
+
+  /**
+   * Put tokens, resuming once there is space. Use with yield*.
+   */
+  *putAmount(
+    amount: number,
+    priority: number = 0
+  ): Generator<BufferPutRequest, void, void> {
+    yield this.put(amount, priority);
+  }
+
+  /**
    * Internal method called by Process to actually put tokens.
    * @param amount - Amount to put
    * @param onAcquired - Callback to invoke when space is available
