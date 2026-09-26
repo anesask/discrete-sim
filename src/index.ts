@@ -64,6 +64,21 @@ export {
   SummaryStatistics,
 } from './statistics/Statistics.js';
 
+// Experiments: replications and parameter sweeps
+export {
+  Experiment,
+  ReplicationResult,
+  SweepResult,
+  deriveSeed,
+} from './experiment/Experiment.js';
+export type {
+  ModelFn,
+  ReplicationOptions,
+  MetricSummary,
+  ComparisonRow,
+  ParameterSpace,
+} from './experiment/Experiment.js';
+
 // Random number generation
 export { Random, WeightedValue, EmpiricalOptions } from './random/Random.js';
 

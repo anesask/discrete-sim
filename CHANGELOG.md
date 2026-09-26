@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.16] - 2026-09-26
+
+### Added
+
+- **Experiment runner** ([#6](https://github.com/anesask/discrete-sim/issues/6)): `new Experiment(model)` wraps a model factory `(params, seed, replication) => metrics` and runs it many times.
+  - `replicate(params, { replications, seed?, onProgress? })` returns a `ReplicationResult` with `mean`, `stdDev`, `min`, `max`, `confidenceInterval`, `summary`, `table` and `toCSV`.
+  - `sweep(space, options)` runs the full factorial of a parameter space and returns a `SweepResult` with `compare(metric)`, `best(metric, 'min' | 'max')` and `toCSV()`.
+  - Seeds are derived from the base seed with a hash (`deriveSeed`), so experiments are reproducible and adjacent replications are not correlated. Replication i uses the same seed in every scenario (common random numbers).
+- Example `examples/experiment-mm1/`: 30 replications of M/M/1 with a confidence interval next to the theoretical wait, and a server-count sweep.
+- README section "Running Experiments"; GUIDE section "One run is not an answer".
+
 ## [0.1.15] - 2026-09-26
 
 ### Added
