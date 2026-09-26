@@ -156,5 +156,5 @@ Try modifying parameters to explore different scenarios:
 ## Learn More
 
 - [Buffer API Reference](../../README.md#buffer)
-- [Process-Based Modeling Guide](../../GUIDE.md)
+- [Process-Based Modeling Guide](../../docs/guide/beginners-guide.md)
 - [Statistics Documentation](../../README.md#statistics)

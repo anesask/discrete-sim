@@ -221,4 +221,4 @@ Try modifying parameters to explore different scenarios:
 
 - [Store API Reference](../../README.md#store)
 - [Filter-Based Retrieval Guide](../../README.md#filter-based-retrieval)
-- [Process-Based Modeling](../../GUIDE.md)
+- [Process-Based Modeling](../../docs/guide/beginners-guide.md)

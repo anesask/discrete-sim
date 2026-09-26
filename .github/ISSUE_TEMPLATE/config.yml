@@ -4,5 +4,5 @@ contact_links:
     url: https://www.discrete-sim.dev
     about: Guide, API reference and examples
   - name: Beginner's Guide
-    url: https://github.com/anesask/discrete-sim/blob/main/GUIDE.md
+    url: https://github.com/anesask/discrete-sim/blob/main/docs/guide/beginners-guide.md
     about: New to discrete-event simulation? Start here.

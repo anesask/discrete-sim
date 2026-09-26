@@ -515,7 +515,7 @@ When adding major new components:
 3. **Implement incrementally**
 4. **Document thoroughly**
 5. **Add integration tests**
-6. **Update IMPLEMENTATION_LOG.md**
+6. **Update CHANGELOG.md** under `## [Unreleased]`
 
 ### File Organization
 
