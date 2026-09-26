@@ -1,4 +1,5 @@
 import { Simulation } from '../core/Simulation.js';
+import { WaitKind } from '../core/waitKind.js';
 import {
   Monitor,
   type MonitorOptions,
@@ -64,6 +65,9 @@ export interface BufferStatistics {
  * Token returned by buffer.put() to be yielded in process generators
  */
 export class BufferPutRequest {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.BufferPut = WaitKind.BufferPut;
+
   constructor(
     public readonly buffer: Buffer,
     public readonly amount: number,
@@ -83,6 +87,9 @@ export class BufferPutRequest {
  * Token returned by buffer.get() to be yielded in process generators
  */
 export class BufferGetRequest {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.BufferGet = WaitKind.BufferGet;
+
   constructor(
     public readonly buffer: Buffer,
     public readonly amount: number,
@@ -375,14 +382,16 @@ export class Buffer {
 
     this.totalPutsCount++;
     this.totalAmountPutValue += amount;
-    this.simulation._emitResource('buffer:put', {
-      resource: this,
-      name: this.name,
-      processId: process?.id,
-      processName: process?.name,
-      amount,
-      level: this.currentLevel,
-    });
+    if (this.simulation.isTraceEnabled('resources')) {
+      this.simulation._emitResource('buffer:put', {
+        resource: this,
+        name: this.name,
+        processId: process?.id,
+        processName: process?.name,
+        amount,
+        level: this.currentLevel,
+      });
+    }
 
     if (this.currentLevel + amount <= this.capacityValue) {
       // Space available, put immediately
@@ -417,14 +426,16 @@ export class Buffer {
 
     this.totalGetsCount++;
     this.totalAmountGotValue += amount;
-    this.simulation._emitResource('buffer:get', {
-      resource: this,
-      name: this.name,
-      processId: process?.id,
-      processName: process?.name,
-      amount,
-      level: this.currentLevel,
-    });
+    if (this.simulation.isTraceEnabled('resources')) {
+      this.simulation._emitResource('buffer:get', {
+        resource: this,
+        name: this.name,
+        processId: process?.id,
+        processName: process?.name,
+        amount,
+        level: this.currentLevel,
+      });
+    }
 
     if (this.currentLevel >= amount) {
       // Tokens available, get immediately

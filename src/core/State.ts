@@ -1,4 +1,5 @@
 import { Simulation } from './Simulation.js';
+import { WaitKind } from './waitKind.js';
 import { Process } from './Process.js';
 import { ValidationError, validateName } from '../utils/validation.js';
 
@@ -7,6 +8,9 @@ import { ValidationError, validateName } from '../utils/validation.js';
  * Resolves as soon as the predicate holds, re-evaluated on every set().
  */
 export class StateWaitRequest<T> {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.State = WaitKind.State;
+
   /** The value that satisfied the predicate (set when the wait completes) */
   public value?: T;
 

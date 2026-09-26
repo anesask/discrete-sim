@@ -1,6 +1,6 @@
 {
   "meta": {
-    "date": "2026-09-26T12:31:31.931Z",
+    "date": "2026-09-26T14:21:39.455Z",
     "node": "v25.6.1",
     "cpu": "Intel(R) Core(TM) i7-8565U CPU @ 1.80GHz",
     "platform": "win32"
@@ -10,50 +10,50 @@
       "name": "EventQueue push+pop",
       "size": 100000,
       "unit": "events",
-      "ms": 197.69000000000005,
-      "perSecond": 505842.48065152497
+      "ms": 109.56459999999998,
+      "perSecond": 912703.5557105124
     },
     {
       "name": "Simulation.run scheduled events",
       "size": 200000,
       "unit": "events",
-      "ms": 261.78420000000006,
-      "perSecond": 763988.0481709742
+      "ms": 212.24220000000003,
+      "perSecond": 942319.6706404287
     },
     {
       "name": "M/M/1 queue",
       "size": 100000,
       "unit": "customers",
-      "ms": 193.74980000000005,
-      "perSecond": 516129.56503697025
+      "ms": 246.4619,
+      "perSecond": 405742.2262832511
     },
     {
       "name": "10k concurrent processes x 10 timeouts",
       "size": 100000,
       "unit": "timeouts",
-      "ms": 193.82429999999977,
-      "perSecond": 515931.1809716331
+      "ms": 162.53060000000005,
+      "perSecond": 615268.7555451095
     },
     {
       "name": "Resource priority queue, 10k waiters",
       "size": 10000,
       "unit": "requests",
-      "ms": 96.03700000000026,
-      "perSecond": 104126.53456480287
+      "ms": 42.231899999999996,
+      "perSecond": 236787.8309997893
     },
     {
       "name": "Statistics 1M samples + percentiles",
       "size": 1000000,
       "unit": "samples",
-      "ms": 767.7723999999998,
-      "perSecond": 1302469.3255449145
+      "ms": 790.2448999999997,
+      "perSecond": 1265430.5013547072
     },
     {
       "name": "Random mixed distributions",
       "size": 1000000,
       "unit": "draws",
-      "ms": 55.4386999999997,
-      "perSecond": 18037941.005110245
+      "ms": 67.08710000000019,
+      "perSecond": 14905995.340385815
     }
   ]
 }

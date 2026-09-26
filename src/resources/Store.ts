@@ -1,4 +1,5 @@
 import { Simulation } from '../core/Simulation.js';
+import { WaitKind } from '../core/waitKind.js';
 import {
   Monitor,
   type MonitorOptions,
@@ -63,6 +64,9 @@ export interface StoreStatistics {
  * Token returned by store.put() to be yielded in process generators
  */
 export class StorePutRequest<T> {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.StorePut = WaitKind.StorePut;
+
   constructor(
     public readonly store: Store<T>,
     public readonly item: T,
@@ -89,6 +93,9 @@ export class StorePutRequest<T> {
  * Token returned by store.get() to be yielded in process generators
  */
 export class StoreGetRequest<T> {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.StoreGet = WaitKind.StoreGet;
+
   /** The retrieved item (set after successful get) */
   public retrievedItem?: T;
 
@@ -405,13 +412,15 @@ export class Store<T = any> {
     this.updateStatistics();
 
     this.totalPutsCount++;
-    this.simulation._emitResource('store:put', {
-      resource: this,
-      name: this.options.name,
-      processId: process?.id,
-      processName: process?.name,
-      size: this.itemsArray.length,
-    });
+    if (this.simulation.isTraceEnabled('resources')) {
+      this.simulation._emitResource('store:put', {
+        resource: this,
+        name: this.options.name,
+        processId: process?.id,
+        processName: process?.name,
+        size: this.itemsArray.length,
+      });
+    }
 
     if (this.itemsArray.length < this.capacityValue) {
       // Space available, put immediately
@@ -456,13 +465,15 @@ export class Store<T = any> {
     this.updateStatistics();
 
     this.totalGetsCount++;
-    this.simulation._emitResource('store:get', {
-      resource: this,
-      name: this.options.name,
-      processId: process?.id,
-      processName: process?.name,
-      size: this.itemsArray.length,
-    });
+    if (this.simulation.isTraceEnabled('resources')) {
+      this.simulation._emitResource('store:get', {
+        resource: this,
+        name: this.options.name,
+        processId: process?.id,
+        processName: process?.name,
+        size: this.itemsArray.length,
+      });
+    }
 
     // Try to find matching item
     const itemIndex = filter ? this.itemsArray.findIndex(filter) : 0; // FIFO if no filter

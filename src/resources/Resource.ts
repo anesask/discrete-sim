@@ -1,4 +1,5 @@
 import { Simulation } from '../core/Simulation.js';
+import { WaitKind } from '../core/waitKind.js';
 import {
   Monitor,
   type MonitorOptions,
@@ -57,6 +58,9 @@ export interface ResourceStatistics {
  * Token returned by resource.request() to be yielded in process generators
  */
 export class ResourceRequest {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.Resource = WaitKind.Resource;
+
   constructor(
     public readonly resource: Resource,
     public readonly priority: number = 0
@@ -416,6 +420,7 @@ export class Resource {
     process: Process | undefined,
     extra: Record<string, unknown>
   ): void {
+    if (!this.simulation.isTraceEnabled('resources')) return;
     this.simulation._emitResource(operation, {
       resource: this,
       name: this.options.name,

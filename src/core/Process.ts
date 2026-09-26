@@ -4,6 +4,7 @@ import { BufferPutRequest, BufferGetRequest } from '../resources/Buffer.js';
 import { StorePutRequest, StoreGetRequest } from '../resources/Store.js';
 import { BatchPutRequest, BatchTakeRequest } from '../resources/Batch.js';
 import { StateWaitRequest } from './State.js';
+import { WaitKind } from './waitKind.js';
 import { SimEventRequest } from './SimEvent.js';
 import {
   ValidationError,
@@ -25,6 +26,9 @@ import {
  * ```
  */
 export class Timeout {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.Timeout = WaitKind.Timeout;
+
   constructor(public readonly delay: number) {
     // First check if finite (rejects NaN, Infinity)
     if (!Number.isFinite(delay)) {
@@ -70,6 +74,9 @@ export interface WaitForOptions {
  * ```
  */
 export class Condition {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.Condition = WaitKind.Condition;
+
   public readonly interval: number;
   public readonly maxIterations: number;
 
@@ -194,6 +201,9 @@ export interface ProcessDoneResult {
  * ```
  */
 export class ProcessDoneRequest {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.ProcessDone = WaitKind.ProcessDone;
+
   /** Set when the awaited process has finished */
   public result?: ProcessDoneResult;
 
@@ -229,18 +239,15 @@ export type Waitable =
 export type WaitableInput = Waitable | Generator<Waitable, unknown, unknown>;
 
 function isWaitable(value: unknown): value is Waitable {
+  if (value === null || typeof value !== 'object') return false;
+  const kind = (value as { kind?: unknown }).kind;
   return (
-    value instanceof Timeout ||
-    value instanceof ResourceRequest ||
-    value instanceof BufferPutRequest ||
-    value instanceof BufferGetRequest ||
-    value instanceof StorePutRequest ||
-    value instanceof StoreGetRequest ||
-    value instanceof BatchPutRequest ||
-    value instanceof BatchTakeRequest ||
-    value instanceof StateWaitRequest ||
-    value instanceof SimEventRequest ||
-    value instanceof ProcessDoneRequest
+    typeof kind === 'number' &&
+    kind !== WaitKind.Condition &&
+    kind !== WaitKind.AnyOf &&
+    kind !== WaitKind.AllOf &&
+    kind >= WaitKind.Timeout &&
+    kind <= WaitKind.ProcessDone
   );
 }
 
@@ -310,6 +317,9 @@ export interface AnyOfResult {
  * Prefer the {@link anyOf} helper, which returns the result from `yield*`.
  */
 export class AnyOfRequest {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.AnyOf = WaitKind.AnyOf;
+
   public readonly branches: readonly Waitable[];
   /** Set when the wait has settled */
   public result?: AnyOfResult;
@@ -329,6 +339,9 @@ export class AnyOfRequest {
  * Prefer the {@link allOf} helper.
  */
 export class AllOfRequest {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.AllOf = WaitKind.AllOf;
+
   public readonly branches: readonly Waitable[];
   /** Branches completed so far, in completion order */
   public readonly completed: Waitable[] = [];
@@ -552,7 +565,9 @@ export class Process {
 
     this.state = 'running';
     this.simulation._registerProcess(this);
-    this.simulation._emitProcess('process:start', this.traceInfo());
+    if (this.simulation.isTraceEnabled('processes')) {
+      this.simulation._emitProcess('process:start', this.traceInfo());
+    }
     // Execute immediately (synchronously) until first yield
     this.step();
   }
@@ -586,10 +601,12 @@ export class Process {
 
     this.state = 'interrupted';
     this.interruptError = reason ?? new Error('Process interrupted');
-    this.simulation._emitProcess('process:interrupt', {
-      ...this.traceInfo(),
-      error: this.interruptError,
-    });
+    if (this.simulation.isTraceEnabled('processes')) {
+      this.simulation._emitProcess('process:interrupt', {
+        ...this.traceInfo(),
+        error: this.interruptError,
+      });
+    }
 
     // Leave every queue / unschedule every event this process was waiting on
     this.cancelCurrentWait();
@@ -761,10 +778,12 @@ export class Process {
     } catch (error) {
       // Unhandled error in process: say which process, then rethrow
       this.annotate(error);
-      this.simulation._emitProcess('process:error', {
-        ...this.traceInfo(),
-        error: error instanceof Error ? error : undefined,
-      });
+      if (this.simulation.isTraceEnabled('processes')) {
+        this.simulation._emitProcess('process:error', {
+          ...this.traceInfo(),
+          error: error instanceof Error ? error : undefined,
+        });
+      }
       this.finish('interrupted');
       throw error;
     }
@@ -775,16 +794,20 @@ export class Process {
    * @private
    */
   private dispatch(yieldedValue: unknown): void {
-    if (yieldedValue instanceof Condition) {
-      this.waitForCondition(yieldedValue);
+    const kind =
+      yieldedValue !== null && typeof yieldedValue === 'object'
+        ? (yieldedValue as { kind?: unknown }).kind
+        : undefined;
+    if (kind === WaitKind.Condition) {
+      this.waitForCondition(yieldedValue as Condition);
       return;
     }
-    if (yieldedValue instanceof AnyOfRequest) {
-      this.waitAny(yieldedValue);
+    if (kind === WaitKind.AnyOf) {
+      this.waitAny(yieldedValue as AnyOfRequest);
       return;
     }
-    if (yieldedValue instanceof AllOfRequest) {
-      this.waitAll(yieldedValue);
+    if (kind === WaitKind.AllOf) {
+      this.waitAll(yieldedValue as AllOfRequest);
       return;
     }
     if (!isWaitable(yieldedValue)) {
@@ -818,97 +841,107 @@ export class Process {
    * @private
    */
   private awaitOne(waitable: Waitable, onComplete: () => void): () => void {
-    if (waitable instanceof Timeout) {
-      const id = this.simulation.schedule(waitable.delay, onComplete);
-      return () => {
-        this.simulation.cancel(id);
-      };
+    switch (waitable.kind) {
+      case WaitKind.Timeout: {
+        const id = this.simulation.schedule(waitable.delay, onComplete);
+        return () => {
+          this.simulation.cancel(id);
+        };
+      }
+      case WaitKind.Resource: {
+        waitable.resource._acquire(
+          waitable.priority,
+          onComplete,
+          this,
+          waitable
+        );
+        return () => {
+          waitable.resource._cancelAcquire(onComplete);
+        };
+      }
+      case WaitKind.BufferPut: {
+        waitable.buffer._put(
+          waitable.amount,
+          waitable.priority,
+          onComplete,
+          this
+        );
+        return () => {
+          waitable.buffer._cancelPut(onComplete);
+        };
+      }
+      case WaitKind.BufferGet: {
+        waitable.buffer._get(
+          waitable.amount,
+          waitable.priority,
+          onComplete,
+          this
+        );
+        return () => {
+          waitable.buffer._cancelGet(onComplete);
+        };
+      }
+      case WaitKind.StorePut: {
+        waitable.store._put(waitable.item, waitable.priority, onComplete, this);
+        return () => {
+          waitable.store._cancelPut(onComplete);
+        };
+      }
+      case WaitKind.StoreGet: {
+        const onItem = (item: unknown) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          waitable.retrievedItem = item;
+          onComplete();
+        };
+        waitable.store._get(waitable.filter, waitable.priority, onItem, this);
+        return () => {
+          waitable.store._cancelGet(onItem);
+        };
+      }
+      case WaitKind.BatchPut: {
+        waitable.batch._put(waitable.item, onComplete, this);
+        return () => {
+          waitable.batch._cancelPut(onComplete);
+        };
+      }
+      case WaitKind.BatchTake: {
+        const onTaken = (items: unknown[], isPartial: boolean) => {
+          waitable.items = items;
+          waitable.isPartial = isPartial;
+          onComplete();
+        };
+        waitable.batch._take(onTaken, this);
+        return () => {
+          waitable.batch._cancelTake(onTaken);
+        };
+      }
+      case WaitKind.State: {
+        const onSatisfied = (value: unknown) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          waitable.value = value;
+          onComplete();
+        };
+        waitable.state._addWaiter(waitable.predicate, onSatisfied, this);
+        return () => {
+          waitable.state._removeWaiter(onSatisfied);
+        };
+      }
+      case WaitKind.SimEvent: {
+        waitable.event._addWaiter(onComplete, this, waitable);
+        return () => {
+          waitable.event._removeWaiter(this);
+        };
+      }
+      case WaitKind.ProcessDone: {
+        return waitable.process._onDone(() => {
+          const target = waitable.process;
+          waitable.result = target.isCompleted
+            ? { state: 'completed' }
+            : { state: 'interrupted', error: target.interruptReason };
+          onComplete();
+        });
+      }
     }
-    if (waitable instanceof ResourceRequest) {
-      waitable.resource._acquire(waitable.priority, onComplete, this, waitable);
-      return () => {
-        waitable.resource._cancelAcquire(onComplete);
-      };
-    }
-    if (waitable instanceof BufferPutRequest) {
-      waitable.buffer._put(
-        waitable.amount,
-        waitable.priority,
-        onComplete,
-        this
-      );
-      return () => {
-        waitable.buffer._cancelPut(onComplete);
-      };
-    }
-    if (waitable instanceof BufferGetRequest) {
-      waitable.buffer._get(
-        waitable.amount,
-        waitable.priority,
-        onComplete,
-        this
-      );
-      return () => {
-        waitable.buffer._cancelGet(onComplete);
-      };
-    }
-    if (waitable instanceof StorePutRequest) {
-      waitable.store._put(waitable.item, waitable.priority, onComplete, this);
-      return () => {
-        waitable.store._cancelPut(onComplete);
-      };
-    }
-    if (waitable instanceof StoreGetRequest) {
-      const onItem = (item: unknown) => {
-        waitable.retrievedItem = item;
-        onComplete();
-      };
-      waitable.store._get(waitable.filter, waitable.priority, onItem, this);
-      return () => {
-        waitable.store._cancelGet(onItem);
-      };
-    }
-    if (waitable instanceof BatchPutRequest) {
-      waitable.batch._put(waitable.item, onComplete, this);
-      return () => {
-        waitable.batch._cancelPut(onComplete);
-      };
-    }
-    if (waitable instanceof BatchTakeRequest) {
-      const onTaken = (items: unknown[], isPartial: boolean) => {
-        waitable.items = items;
-        waitable.isPartial = isPartial;
-        onComplete();
-      };
-      waitable.batch._take(onTaken, this);
-      return () => {
-        waitable.batch._cancelTake(onTaken);
-      };
-    }
-    if (waitable instanceof StateWaitRequest) {
-      const onSatisfied = (value: unknown) => {
-        waitable.value = value;
-        onComplete();
-      };
-      waitable.state._addWaiter(waitable.predicate, onSatisfied, this);
-      return () => {
-        waitable.state._removeWaiter(onSatisfied);
-      };
-    }
-    if (waitable instanceof SimEventRequest) {
-      waitable.event._addWaiter(onComplete, this, waitable);
-      return () => {
-        waitable.event._removeWaiter(this);
-      };
-    }
-    // ProcessDoneRequest
-    return waitable.process._onDone(() => {
-      const target = waitable.process;
-      waitable.result = target.isCompleted
-        ? { state: 'completed' }
-        : { state: 'interrupted', error: target.interruptReason };
-      onComplete();
-    });
   }
 
   /**
@@ -917,31 +950,41 @@ export class Process {
    * @private
    */
   private undoLateCompletion(waitable: Waitable): void {
-    if (waitable instanceof ResourceRequest) {
-      waitable.resource.release(waitable);
-    } else if (waitable instanceof BufferGetRequest) {
-      waitable.buffer._put(waitable.amount, 0, () => {});
-    } else if (waitable instanceof BufferPutRequest) {
-      waitable.buffer._get(waitable.amount, 0, () => {});
-    } else if (waitable instanceof StoreGetRequest) {
-      if (waitable.retrievedItem !== undefined) {
-        waitable.store._put(waitable.retrievedItem, 0, () => {});
-      }
-    } else if (waitable instanceof StorePutRequest) {
-      waitable.store._get(
-        (item: unknown) => item === waitable.item,
-        0,
-        () => {}
-      );
-    } else if (waitable instanceof BatchTakeRequest) {
-      if (waitable.items) {
-        waitable.batch._restore(waitable.items, waitable.isPartial ?? false);
-        waitable.items = undefined;
-      }
-    } else if (waitable instanceof BatchPutRequest) {
-      waitable.batch._withdraw(waitable.item);
+    switch (waitable.kind) {
+      case WaitKind.Resource:
+        waitable.resource.release(waitable);
+        break;
+      case WaitKind.BufferGet:
+        waitable.buffer._put(waitable.amount, 0, () => {});
+        break;
+      case WaitKind.BufferPut:
+        waitable.buffer._get(waitable.amount, 0, () => {});
+        break;
+      case WaitKind.StoreGet:
+        if (waitable.retrievedItem !== undefined) {
+          waitable.store._put(waitable.retrievedItem, 0, () => {});
+        }
+        break;
+      case WaitKind.StorePut:
+        waitable.store._get(
+          (item: unknown) => item === waitable.item,
+          0,
+          () => {}
+        );
+        break;
+      case WaitKind.BatchTake:
+        if (waitable.items) {
+          waitable.batch._restore(waitable.items, waitable.isPartial ?? false);
+          waitable.items = undefined;
+        }
+        break;
+      case WaitKind.BatchPut:
+        waitable.batch._withdraw(waitable.item);
+        break;
+      default:
+        // Timeout, State, SimEvent, ProcessDone: nothing was granted
+        break;
     }
-    // Timeout, SimEventRequest, ProcessDoneRequest: nothing was granted
   }
 
   /**
@@ -1058,10 +1101,12 @@ export class Process {
    */
   private finish(state: 'completed' | 'interrupted'): void {
     this.state = state;
-    this.simulation._emitProcess(
-      state === 'completed' ? 'process:complete' : 'process:interrupted',
-      this.traceInfo()
-    );
+    if (this.simulation.isTraceEnabled('processes')) {
+      this.simulation._emitProcess(
+        state === 'completed' ? 'process:complete' : 'process:interrupted',
+        this.traceInfo()
+      );
+    }
     this.waitSeq++;
     this.waitCancel = undefined;
     this.simulation._removeProcess(this);
