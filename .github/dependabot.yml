@@ -4,7 +4,11 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    labels: [tooling]
+    labels: [tooling, no-bump]
+    # Major upgrades (ESLint flat config, vitest majors, TypeScript) are done deliberately, see issue #3.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       dev-dependencies:
         dependency-type: development
@@ -14,4 +18,4 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    labels: [tooling]
+    labels: [tooling, no-bump]
