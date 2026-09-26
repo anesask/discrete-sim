@@ -234,7 +234,11 @@ describe('Observability and Trace Mode', () => {
   describe('Real-world Tracing Scenario', () => {
     it('should trace complex event coordination pattern', () => {
       const barrier = new SimEvent(sim, 'barrier');
-      const allEvents: Array<{ operation: string; time: number; name: string }> = [];
+      const allEvents: Array<{
+        operation: string;
+        time: number;
+        name: string;
+      }> = [];
 
       sim.enableTrace({ simEvents: true });
       sim.on('trace:simevent', (data: any) => {
@@ -269,7 +273,9 @@ describe('Observability and Trace Mode', () => {
 
       expect(waits).toHaveLength(3);
       expect(triggers).toHaveLength(1);
-      expect(triggers[0]!.time).toBe(16); // Trigger at time 16 (coordinator checks after last arrival at 15)
+      // Last worker arrives at 15 (timeout scheduled at t=0) before the
+      // coordinator's poll for t=15 (scheduled at t=14), so the trigger fires at 15.
+      expect(triggers[0]!.time).toBe(15);
     });
   });
 

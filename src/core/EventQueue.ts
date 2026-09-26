@@ -11,6 +11,12 @@ export interface Event {
   callback: () => void;
   /** Unique identifier for the event */
   id: string;
+  /**
+   * Monotonically increasing insertion sequence number.
+   * Used as the final tie-breaker so events with equal time and priority
+   * execute in insertion (FIFO) order.
+   */
+  readonly seq: number;
 }
 
 /**
@@ -50,9 +56,10 @@ export class EventQueue {
    * });
    * ```
    */
-  push(event: Omit<Event, 'id'>): string {
-    const id = `event-${this.eventIdCounter++}`;
-    const fullEvent: Event = { ...event, id };
+  push(event: Omit<Event, 'id' | 'seq'>): string {
+    const seq = this.eventIdCounter++;
+    const id = `event-${seq}`;
+    const fullEvent: Event = { ...event, id, seq };
 
     this.heap.push(fullEvent);
     this.bubbleUp(this.heap.length - 1);
@@ -277,7 +284,11 @@ export class EventQueue {
    * Events are ordered by:
    * 1. Time (earlier times first)
    * 2. Priority (lower priority values first)
-   * 3. ID (for deterministic ordering when time and priority are equal)
+   * 3. Insertion sequence (FIFO when time and priority are equal)
+   *
+   * The sequence number is compared numerically. Comparing the string IDs
+   * would order "event-10" before "event-9" and break FIFO after the
+   * tenth event.
    *
    * @returns Negative if a < b, positive if a > b, zero if equal
    */
@@ -292,7 +303,7 @@ export class EventQueue {
       return a.priority - b.priority;
     }
 
-    // Finally by ID for deterministic ordering
-    return a.id.localeCompare(b.id);
+    // Finally by insertion order
+    return a.seq - b.seq;
   }
 }

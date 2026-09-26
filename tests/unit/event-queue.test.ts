@@ -212,6 +212,40 @@ describe('EventQueue', () => {
       expect(queue.pop()?.id).toBe(id3);
     });
 
+    it('should preserve FIFO for many events with equal time and priority (regression #1)', () => {
+      // String comparison of IDs ordered "event-10" before "event-9".
+      // Use enough events to cross the 9 -> 10 and 99 -> 100 boundaries.
+      const n = 150;
+      const ids: string[] = [];
+      for (let i = 0; i < n; i++) {
+        ids.push(queue.push({ time: 10, priority: 0, callback: () => {} }));
+      }
+
+      const popped: string[] = [];
+      while (!queue.isEmpty) {
+        popped.push(queue.pop()!.id);
+      }
+
+      expect(popped).toEqual(ids);
+    });
+
+    it('should preserve FIFO for equal events after removing one in the middle', () => {
+      const ids: string[] = [];
+      for (let i = 0; i < 40; i++) {
+        ids.push(queue.push({ time: 10, priority: 0, callback: () => {} }));
+      }
+
+      expect(queue.remove(ids[20]!)).toBe(true);
+      ids.splice(20, 1);
+
+      const popped: string[] = [];
+      while (!queue.isEmpty) {
+        popped.push(queue.pop()!.id);
+      }
+
+      expect(popped).toEqual(ids);
+    });
+
     it('should maintain correct order with mixed times and priorities', () => {
       queue.push({ time: 10, priority: 5, callback: () => {} }); // 3rd
       queue.push({ time: 5, priority: 10, callback: () => {} }); // 1st (earliest time)
