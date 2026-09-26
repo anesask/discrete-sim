@@ -4,6 +4,10 @@ export {
   SimulationOptions,
   SimulationResult,
   TraceOptions,
+  RunAsyncOptions,
+  RealtimeOptions,
+  RealtimeHandle,
+  ProgressInfo,
 } from './core/Simulation.js';
 export { EventQueue, Event } from './core/EventQueue.js';
 

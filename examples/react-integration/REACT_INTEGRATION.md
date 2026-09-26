@@ -1,5 +1,48 @@
 # React Integration Guide for discrete-sim
 
+## Driving the Simulation from the UI
+
+Never call `sim.run()` in a click handler: it blocks the page until the whole simulation is done. Use the non-blocking drivers (v0.1.18+):
+
+```tsx
+import { useEffect, useRef, useState } from 'react';
+import { Simulation, RealtimeHandle } from 'discrete-sim';
+
+export function SimulationControls({ sim }: { sim: Simulation }) {
+  const handle = useRef<RealtimeHandle | null>(null);
+  const [now, setNow] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    const onProgress = (info: unknown) => setNow((info as { now: number }).now);
+    sim.on('progress', onProgress);
+    return () => sim.off('progress', onProgress);
+  }, [sim]);
+
+  const play = () => {
+    handle.current = sim.runRealtime({ factor: 0.05 }); // 50 ms per simulation unit
+  };
+  const togglePause = () => {
+    const h = handle.current;
+    if (!h) return;
+    h.isPaused ? h.resume() : h.pause();
+    setPaused(h.isPaused);
+  };
+
+  return (
+    <div>
+      <span>t = {now.toFixed(1)}</span>
+      <button onClick={play}>Play</button>
+      <button onClick={togglePause}>{paused ? 'Resume' : 'Pause'}</button>
+      <input type="range" min="0.001" max="1" step="0.001" onChange={(e) => handle.current?.setFactor(Number(e.target.value))} />
+      <button onClick={() => handle.current?.stop()}>Stop</button>
+    </div>
+  );
+}
+```
+
+For a fast run whose result you only need at the end, `await sim.runAsync({ batchSize: 1000 })` keeps the page responsive and emits `progress` after every batch for a progress bar.
+
 ## Fast Refresh Compatibility
 
 When integrating discrete-sim with React applications, follow these guidelines to ensure compatibility with React Fast Refresh (Hot Module Replacement).

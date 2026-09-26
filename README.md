@@ -89,6 +89,26 @@ const timeoutId = sim.schedule(30, () => console.log('Timeout!'));
 sim.cancel(timeoutId); // Cancel if work completes early
 ```
 
+### Async and Real-Time Execution (v0.1.18+)
+
+`sim.run()` blocks until the simulation is done. For browser pages, dashboards and teaching tools use the non-blocking variants:
+
+```typescript
+// Non-blocking: process events in batches, yield to the event loop in between
+sim.on('progress', ({ now, eventsProcessed, eventsInQueue }) => render(now));
+const result = await sim.runAsync({ until: 10_000, batchSize: 500 });
+
+// Paced to wall-clock time: 0.1 s of real time per simulation unit
+const handle = sim.runRealtime({ factor: 0.1, until: 1000 });
+pauseButton.onclick = () =>
+  handle.isPaused ? handle.resume() : handle.pause();
+speedSlider.oninput = (e) => handle.setFactor(Number(e.target.value));
+stopButton.onclick = () => handle.stop();
+await handle.done; // resolves with the same SimulationResult as run()
+```
+
+`runAsync` gives exactly the same result as `run()` for the same model and seed; it only changes when the host gets control back. `runRealtime` executes each event when its simulation time is due; events that are overdue after a speed change run as fast as possible until the clock catches up. Only one run can be in flight per simulation.
+
 ### Processes
 
 Processes are described using generator functions. Use `yield` to wait for events.
@@ -858,6 +878,12 @@ class Simulation {
 
   // Core methods
   run(until?: number): SimulationResult;
+  runAsync(options?: {
+    until?: number;
+    batchSize?: number;
+    signal?: AbortSignal;
+  }): Promise<SimulationResult>;
+  runRealtime(options?: { factor?: number; until?: number }): RealtimeHandle;
   step(): boolean;
   reset(): void;
 
@@ -872,7 +898,10 @@ class Simulation {
   process(generatorFn: () => Generator): Process;
 
   // Events
-  on(event: 'step' | 'complete' | 'error', handler: Function): void;
+  on(
+    event: 'step' | 'complete' | 'error' | 'progress',
+    handler: Function
+  ): void;
   off(event: string, handler: Function): void;
 }
 
