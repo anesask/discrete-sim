@@ -41,14 +41,21 @@ Sample statistics (mean, variance, standard deviation) use Welford's online algo
 
 ### Scale Considerations
 
-discrete-sim is designed for **small to medium-scale simulations** (up to ~100,000 events). Performance characteristics:
+Measured with `npm run bench` (Node 25, Intel i7-8565U laptop, single thread). Your numbers will differ; the ratios are what matter.
 
-- **10,000 events**: ~100ms (excellent for prototyping and education)
-- **100,000 events**: ~1-2s (good for most practical applications)
-- **1,000,000+ events**: May become slow (8-15 minutes) due to JavaScript's performance characteristics
+| Workload | Size | Time | Throughput |
+|---|---|---|---|
+| Event queue push and pop | 100,000 events | 0.20 s | 500k events/s |
+| `Simulation.run()` with scheduled callbacks | 200,000 events | 0.26 s | 760k events/s |
+| M/M/1 queue with wait statistics | 100,000 customers | 0.19 s | 520k customers/s |
+| 10,000 concurrent processes, 10 timeouts each | 100,000 timeouts | 0.19 s | 520k timeouts/s |
+| Priority queue, 10,000 waiters on one resource | 10,000 requests | 0.10 s | 100k requests/s |
+| Statistics with sample tracking, then percentiles | 1,000,000 samples | 0.77 s | 1.3M samples/s |
+| Random, mixed distributions | 1,000,000 draws | 0.06 s | 18M draws/s |
 
-These benchmarks are for single simulation runs.
-For Monte Carlo analysis with multiple independent runs, consider using Node.js worker threads for parallelization.
+In round numbers: a model processes on the order of half a million events per second, so a million-event run takes a couple of seconds and a replication study of thirty such runs about a minute. The event queue is a binary heap with O(log n) push and pop; queue disciplines insert by binary search; sample statistics update in O(1) (Welford) and sort once, lazily, for percentiles.
+
+Run `npm run bench` to reproduce; `benchmarks/baseline.json` holds the numbers above and `benchmarks/latest.json` the last local run.
 
 ### Memory Considerations
 
@@ -61,7 +68,7 @@ For Monte Carlo analysis with multiple independent runs, consider using Node.js 
 
 Consider **SimPy** (Python) or other tools if you need:
 
-- **Very large-scale simulations** (millions of events with heavy statistics)
+- **Very large-scale simulations** (hundreds of millions of events, or models that must run for hours)
 - **High-performance computing** requirements
 - **Integration with scientific Python** (NumPy, SciPy, Pandas) for complex analysis
 - **Parallel simulation** across dozens of CPU cores

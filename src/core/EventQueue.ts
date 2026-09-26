@@ -233,10 +233,9 @@ export class EventQueue {
       }
 
       // Swap with parent
-      [this.heap[index], this.heap[parentIndex]] = [
-        this.heap[parentIndex]!,
-        this.heap[index]!,
-      ];
+      const parent = this.heap[parentIndex]!;
+      this.heap[parentIndex] = this.heap[index]!;
+      this.heap[index] = parent;
       index = parentIndex;
     }
   }
@@ -270,10 +269,9 @@ export class EventQueue {
       }
 
       // Swap with smallest child
-      [this.heap[index], this.heap[smallest]] = [
-        this.heap[smallest]!,
-        this.heap[index]!,
-      ];
+      const child = this.heap[smallest]!;
+      this.heap[smallest] = this.heap[index]!;
+      this.heap[index] = child;
       index = smallest;
     }
   }
