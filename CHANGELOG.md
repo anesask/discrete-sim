@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CSV exports** escape every cell consistently (`Statistics.toCSV`, Experiment CSVs): fields with commas, quotes or line breaks are quoted, and fields starting with `=`, `+`, `-`, `@`, tab or CR get a leading quote so a spreadsheet does not run them as formulas. Metric names were written raw before.
+- `Experiment.sweep` rejects the parameter names `__proto__`, `constructor` and `prototype`.
 - **Package exports** ([#70](https://github.com/anesask/discrete-sim/issues/70)): the `exports` map now declares types per condition (`index.d.mts` for `import`, `index.d.ts` for `require`). Before, ESM consumers under `moduleResolution: node16` resolved CommonJS typings for an ESM file ("masquerading as CJS"). `"type": "commonjs"` is declared explicitly.
 - The deprecated React Fast Refresh checker read `process.env.NODE_ENV` unguarded, which throws in a plain browser; it now checks that `process` exists.
 - `sim.on()` now accepts the trace event names (`trace:resource`, `trace:process`, `trace:simevent`) in its type; they worked at runtime but did not type-check.
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **Security hardening**: `SECURITY.md` with the reporting process (GitHub private vulnerability reporting is enabled) and the library's threat model; CodeQL analysis workflow; secret scanning with push protection and Dependabot vulnerability alerts enabled on the repository (alerts only, no automatic PRs); CI checkouts no longer persist credentials; dev-dependency advisories resolved (`rollup` upgraded).
 - Examples print ASCII only (emojis and box-drawing characters replaced), matching the project rule for source and output.
 - **Package correctness checks in CI** ([#70](https://github.com/anesask/discrete-sim/issues/70)): `publint` and `@arethetypeswrong/cli` validate the packed tarball, and `scripts/browser-smoke.mjs` loads the built bundle in a bare context without Node globals and runs a model that touches every building block plus the async and real-time drivers. `npm run check:package` runs all three locally.
 - **Hot-path pass** ([#58](https://github.com/anesask/discrete-sim/issues/58)): every yieldable carries a numeric `kind` and the scheduler switches on it instead of running an `instanceof` chain; trace payloads and log objects are no longer built when tracing or logging is off; scheduled events are created without an object spread. Measured best-of-three on the benchmark suite against the previous commit: event queue 1.10x, scheduled events 1.18x, M/M/1 1.10x, 10k concurrent processes 1.24x, priority queue with 10k waiters 1.36x; statistics and random unchanged. A CPU profile of M/M/1 now shows garbage collection from per-yield closures and the process registry as the remaining cost. `benchmarks/baseline.json` updated.
