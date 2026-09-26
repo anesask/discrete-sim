@@ -1,4 +1,10 @@
 import { Simulation } from '../core/Simulation.js';
+import {
+  Monitor,
+  type MonitorOptions,
+  createMonitor,
+} from '../statistics/Monitor.js';
+
 import { Process, PreemptionError } from '../core/Process.js';
 import {
   ValidationError,
@@ -20,6 +26,11 @@ export interface ResourceOptions {
   name?: string;
   /** Enable preemption (allows higher priority to interrupt lower priority) */
   preemptive?: boolean;
+  /**
+   * Record inUse, queueLength and capacity over time; read them from
+   * `resource.history`. Pass `{ every }` to throttle recording.
+   */
+  monitor?: boolean | MonitorOptions;
   /** Queue discipline (fifo, lifo, or priority). Default: 'fifo' for non-preemptive, 'priority' for preemptive */
   queueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
 }
@@ -141,7 +152,10 @@ export class Resource {
   private inUseCount: number;
   private readonly queue: QueuedRequest[];
   private readonly activeUsers: ActiveUser[];
-  private readonly options: Required<Omit<ResourceOptions, 'queueDiscipline'>>;
+  private readonly options: Required<
+    Omit<ResourceOptions, 'queueDiscipline' | 'monitor'>
+  >;
+  private readonly monitor?: Monitor;
   private readonly queueConfig: QueueDisciplineConfig;
 
   // Statistics tracking
@@ -207,6 +221,45 @@ export class Resource {
     this.utilizationSampleCount = 0;
     this.lastSampleTime = simulation.now;
     simulation._registerCollector(this);
+    this.monitor = createMonitor(simulation, options.monitor, {
+      inUse: () => this.inUseCount,
+      queueLength: () => this.queue.length,
+      capacity: () => this.capacityValue,
+    });
+  }
+
+  /**
+   * History of inUse, queueLength and capacity over time when the resource
+   * was created with `monitor`; undefined otherwise.
+   */
+  get history(): Monitor | undefined {
+    return this.monitor;
+  }
+
+  /**
+   * Processes currently holding a unit, when known. Grants made through a
+   * process are tracked; releases through `release(request)` or
+   * `release(process)` remove the holder precisely, the bare `release()`
+   * removes holders whose process has finished.
+   */
+  get holders(): readonly Process[] {
+    return this.activeUsers.map((u) => u.process);
+  }
+
+  /**
+   * Requests waiting in the queue, in service order, with the requesting
+   * process, priority and the time the request was made.
+   */
+  get waiting(): ReadonlyArray<{
+    process?: Process;
+    priority: number;
+    since: number;
+  }> {
+    return this.queue.map((q) => ({
+      process: q.process,
+      priority: q.priority,
+      since: q.requestTime,
+    }));
   }
 
   /**
@@ -293,7 +346,7 @@ export class Resource {
       this.trace('resource:grant', process, { priority, waited: 0 });
 
       // Track active user if preemptive resource
-      if (this.options.preemptive && process) {
+      if (process) {
         this.activeUsers.push({
           priority,
           process,
@@ -550,8 +603,8 @@ export class Resource {
     validateRelease(1, this.inUseCount, this.options.name);
     request?._markReleased();
 
-    // Remove from active users if preemptive
-    if (this.options.preemptive) {
+    // Remove from active users
+    {
       if (request) {
         const userIndex = this.activeUsers.findIndex(
           (u) => u.request === request
@@ -615,7 +668,7 @@ export class Resource {
       });
 
       // Add to active users if preemptive
-      if (this.options.preemptive && request.process) {
+      if (request.process) {
         this.activeUsers.push({
           priority: request.priority,
           process: request.process,
@@ -729,6 +782,7 @@ export class Resource {
    * Should be called whenever the resource state changes.
    */
   private updateStatistics(): void {
+    this.monitor?.beforeChange();
     const currentTime = this.simulation.now;
 
     // Only update if time has advanced

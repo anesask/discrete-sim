@@ -1,4 +1,10 @@
 import { Simulation } from '../core/Simulation.js';
+import {
+  Monitor,
+  type MonitorOptions,
+  createMonitor,
+} from '../statistics/Monitor.js';
+
 import { Process } from '../core/Process.js';
 import {
   ValidationError,
@@ -22,6 +28,8 @@ export interface BatchOptions {
    * (back-pressure). Set true to let items keep accumulating without limit.
    */
   unbounded?: boolean;
+  /** Record accumulating size and ready batches over time; read from `batch.history` */
+  monitor?: boolean | MonitorOptions;
 }
 
 /**
@@ -144,6 +152,7 @@ export class Batch<T = any> {
   /** Identifies the accumulation round a maxWait timer belongs to */
   private round = 0;
   private timerId?: string;
+  private readonly monitor?: Monitor;
 
   // Statistics
   private totalPutsCount = 0;
@@ -196,6 +205,17 @@ export class Batch<T = any> {
       unbounded: options.unbounded ?? false,
     };
     simulation._registerCollector(this);
+    this.monitor = createMonitor(simulation, options.monitor, {
+      size: () => this.current.length,
+      readyCount: () => this.ready.length,
+      putQueueLength: () => this.putQueue.length,
+      takeQueueLength: () => this.takeQueue.length,
+    });
+  }
+
+  /** History of size, ready batches and queue lengths when created with `monitor` */
+  get history(): Monitor | undefined {
+    return this.monitor;
   }
 
   /**
@@ -319,6 +339,7 @@ export class Batch<T = any> {
    * @internal
    */
   _put(item: T, onAccepted: () => void, process?: Process): void {
+    this.monitor?.beforeChange();
     this.totalPutsCount++;
     this.simulation._emitResource('batch:put', {
       resource: this,
@@ -347,6 +368,7 @@ export class Batch<T = any> {
     onTaken: (items: T[], isPartial: boolean) => void,
     process?: Process
   ): void {
+    this.monitor?.beforeChange();
     this.simulation._emitResource('batch:take', {
       resource: this,
       name: this.options.name,
@@ -375,6 +397,7 @@ export class Batch<T = any> {
   _cancelPut(onAccepted: () => void): boolean {
     const i = this.putQueue.findIndex((q) => q.onAccepted === onAccepted);
     if (i === -1) return false;
+    this.monitor?.beforeChange();
     this.putQueue.splice(i, 1);
     return true;
   }
@@ -386,6 +409,7 @@ export class Batch<T = any> {
   _cancelTake(onTaken: (items: T[], isPartial: boolean) => void): boolean {
     const i = this.takeQueue.findIndex((q) => q.onTaken === onTaken);
     if (i === -1) return false;
+    this.monitor?.beforeChange();
     this.takeQueue.splice(i, 1);
     return true;
   }
@@ -425,6 +449,7 @@ export class Batch<T = any> {
   }
 
   private formBatch(isPartial: boolean): void {
+    this.monitor?.beforeChange();
     this.cancelTimer();
     const now = this.simulation.now;
     const items = this.current.map((e) => e.item);

@@ -1,4 +1,10 @@
 import { Simulation } from '../core/Simulation.js';
+import {
+  Monitor,
+  type MonitorOptions,
+  createMonitor,
+} from '../statistics/Monitor.js';
+
 import { Process } from '../core/Process.js';
 import {
   ValidationError,
@@ -26,6 +32,8 @@ export interface BufferOptions {
   putQueueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
   /** Queue discipline for get queue (default: 'fifo') */
   getQueueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
+  /** Record level and queue lengths over time; read from `buffer.history` */
+  monitor?: boolean | MonitorOptions;
 }
 
 /**
@@ -154,10 +162,11 @@ export class Buffer {
   private readonly putQueue: QueuedPutRequest[];
   private readonly getQueue: QueuedGetRequest[];
   private readonly options: Required<
-    Omit<BufferOptions, 'putQueueDiscipline' | 'getQueueDiscipline'>
+    Omit<BufferOptions, 'putQueueDiscipline' | 'getQueueDiscipline' | 'monitor'>
   >;
   private readonly putQueueConfig: QueueDisciplineConfig;
   private readonly getQueueConfig: QueueDisciplineConfig;
+  private readonly monitor?: Monitor;
 
   // Statistics tracking
   private totalPutsCount: number;
@@ -248,6 +257,16 @@ export class Buffer {
     this.getQueueSampleCount = 0;
     this.lastSampleTime = simulation.now;
     simulation._registerCollector(this);
+    this.monitor = createMonitor(simulation, options.monitor, {
+      level: () => this.currentLevel,
+      putQueueLength: () => this.putQueue.length,
+      getQueueLength: () => this.getQueue.length,
+    });
+  }
+
+  /** History of level and queue lengths when created with `monitor` */
+  get history(): Monitor | undefined {
+    return this.monitor;
   }
 
   /**
@@ -583,6 +602,7 @@ export class Buffer {
    * @private
    */
   private updateStatistics(): void {
+    this.monitor?.beforeChange();
     const currentTime = this.simulation.now;
 
     // Only update if time has advanced

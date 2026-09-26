@@ -1,4 +1,10 @@
 import { Simulation } from '../core/Simulation.js';
+import {
+  Monitor,
+  type MonitorOptions,
+  createMonitor,
+} from '../statistics/Monitor.js';
+
 import { Process } from '../core/Process.js';
 import {
   ValidationError,
@@ -29,6 +35,8 @@ export interface StoreOptions {
    * stored item is returned (that is always the first stored item that matches).
    */
   getQueueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
+  /** Record size and queue lengths over time; read from `store.history` */
+  monitor?: boolean | MonitorOptions;
 }
 
 /**
@@ -187,10 +195,11 @@ export class Store<T = any> {
   private readonly putQueue: QueuedPutRequest<T>[];
   private readonly getQueue: QueuedGetRequest<T>[];
   private readonly options: Required<
-    Omit<StoreOptions, 'putQueueDiscipline' | 'getQueueDiscipline'>
+    Omit<StoreOptions, 'putQueueDiscipline' | 'getQueueDiscipline' | 'monitor'>
   >;
   private readonly putQueueConfig: QueueDisciplineConfig;
   private readonly getQueueConfig: QueueDisciplineConfig;
+  private readonly monitor?: Monitor;
 
   // Statistics tracking
   private totalPutsCount: number;
@@ -259,6 +268,16 @@ export class Store<T = any> {
     this.getQueueSampleCount = 0;
     this.lastSampleTime = simulation.now;
     simulation._registerCollector(this);
+    this.monitor = createMonitor(simulation, options.monitor, {
+      size: () => this.itemsArray.length,
+      putQueueLength: () => this.putQueue.length,
+      getQueueLength: () => this.getQueue.length,
+    });
+  }
+
+  /** History of size and queue lengths when created with `monitor` */
+  get history(): Monitor | undefined {
+    return this.monitor;
   }
 
   /**
@@ -645,6 +664,7 @@ export class Store<T = any> {
    * @private
    */
   private updateStatistics(): void {
+    this.monitor?.beforeChange();
     const currentTime = this.simulation.now;
 
     // Only update if time has advanced
