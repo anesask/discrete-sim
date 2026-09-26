@@ -2,6 +2,7 @@ import { Simulation } from './Simulation.js';
 import { ResourceRequest } from '../resources/Resource.js';
 import { BufferPutRequest, BufferGetRequest } from '../resources/Buffer.js';
 import { StorePutRequest, StoreGetRequest } from '../resources/Store.js';
+import { BatchPutRequest, BatchTakeRequest } from '../resources/Batch.js';
 import { SimEventRequest } from './SimEvent.js';
 import {
   ValidationError,
@@ -211,6 +212,10 @@ export type Waitable =
   | StorePutRequest<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | StoreGetRequest<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | BatchPutRequest<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | BatchTakeRequest<any>
   | SimEventRequest
   | ProcessDoneRequest;
 
@@ -228,6 +233,8 @@ function isWaitable(value: unknown): value is Waitable {
     value instanceof BufferGetRequest ||
     value instanceof StorePutRequest ||
     value instanceof StoreGetRequest ||
+    value instanceof BatchPutRequest ||
+    value instanceof BatchTakeRequest ||
     value instanceof SimEventRequest ||
     value instanceof ProcessDoneRequest
   );
@@ -411,6 +418,10 @@ export type ProcessGenerator = Generator<
   | StorePutRequest<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | StoreGetRequest<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | BatchPutRequest<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | BatchTakeRequest<any>
   | SimEventRequest
   | ProcessDoneRequest
   | AnyOfRequest
@@ -788,6 +799,23 @@ export class Process {
         waitable.store._cancelGet(onItem);
       };
     }
+    if (waitable instanceof BatchPutRequest) {
+      waitable.batch._put(waitable.item, onComplete, this);
+      return () => {
+        waitable.batch._cancelPut(onComplete);
+      };
+    }
+    if (waitable instanceof BatchTakeRequest) {
+      const onTaken = (items: unknown[], isPartial: boolean) => {
+        waitable.items = items;
+        waitable.isPartial = isPartial;
+        onComplete();
+      };
+      waitable.batch._take(onTaken, this);
+      return () => {
+        waitable.batch._cancelTake(onTaken);
+      };
+    }
     if (waitable instanceof SimEventRequest) {
       waitable.event._addWaiter(onComplete, this, waitable);
       return () => {
@@ -826,6 +854,13 @@ export class Process {
         0,
         () => {}
       );
+    } else if (waitable instanceof BatchTakeRequest) {
+      if (waitable.items) {
+        waitable.batch._restore(waitable.items, waitable.isPartial ?? false);
+        waitable.items = undefined;
+      }
+    } else if (waitable instanceof BatchPutRequest) {
+      waitable.batch._withdraw(waitable.item);
     }
     // Timeout, SimEventRequest, ProcessDoneRequest: nothing was granted
   }

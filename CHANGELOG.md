@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.20] - 2026-09-26
+
+### Added
+
+- **Batch resource** ([#9](https://github.com/anesask/discrete-sim/issues/9)): `new Batch<T>(sim, batchSize, { maxWait?, unbounded?, name? })` accumulates items and releases them as full batches, or partial batches `maxWait` after the first item arrived. `yield batch.put(item)` blocks while a formed batch is still waiting to be taken (back-pressure) unless `unbounded`; `yield batch.take()` resumes with `items` and `isPartial`. Statistics: batches formed, partial batches, average batch size, item wait, put wait, take wait. Works inside `anyOf`/`allOf` and is cleaned up on interrupt.
+- Example `examples/batch-oven/`.
+
 ## [0.1.19] - 2026-09-26
 
 ### Added

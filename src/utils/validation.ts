@@ -420,6 +420,8 @@ export function validateYieldedValue(value: unknown): void {
     'BufferGetRequest',
     'StorePutRequest',
     'StoreGetRequest',
+    'BatchPutRequest',
+    'BatchTakeRequest',
     'SimEventRequest',
     'ProcessDoneRequest',
     'AnyOfRequest',

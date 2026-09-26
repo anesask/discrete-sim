@@ -74,6 +74,14 @@ export {
   StoreGetRequest,
 } from './resources/Store.js';
 
+export {
+  Batch,
+  BatchOptions,
+  BatchStatistics,
+  BatchPutRequest,
+  BatchTakeRequest,
+} from './resources/Batch.js';
+
 // Statistics collection
 export {
   Statistics,

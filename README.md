@@ -543,6 +543,32 @@ console.log(stats.averageGetQueueLength); // Average retrieve queue length
 
 **Complete Example:** See [`examples/warehouse-store/`](examples/warehouse-store/) for a full simulation of a distribution warehouse with filtered retrieval.
 
+### Batch (v0.1.20+)
+
+Collect items and process them together: oven loads, shipping containers, database commits.
+
+```typescript
+import { Batch } from 'discrete-sim';
+
+const oven = new Batch<Part>(sim, 10, { maxWait: 15 }); // full load, or 15 min after the first part
+
+function* producer(part: Part) {
+  yield oven.put(part); // blocks while a finished load is still waiting to be taken
+}
+
+function* baker() {
+  while (true) {
+    const load = oven.take();
+    yield load; // resumes when a load is ready
+    yield* timeout(30); // cure load.items; load.isPartial tells if maxWait released it
+  }
+}
+
+oven.stats; // totalBatches, partialBatches, averageBatchSize, averageItemWaitTime, averagePutWaitTime, averageTakeWaitTime
+```
+
+Pass `unbounded: true` to accumulate without back-pressure. See [`examples/batch-oven/`](examples/batch-oven/).
+
 ### Statistics
 
 Collect and analyze simulation data with comprehensive metrics:
@@ -829,6 +855,16 @@ npx tsx examples/bank-renege/index.ts
 
 [Full documentation](examples/bank-renege/README.md)
 
+### Batch Oven (Batching)
+
+Parts are cured in loads of ten, or whatever has accumulated after 15 minutes; back-pressure holds arrivals while a finished load waits.
+
+```bash
+npx tsx examples/batch-oven/index.ts
+```
+
+[Full documentation](examples/batch-oven/README.md)
+
 ### Hospital Emergency Room (Priority Queues)
 
 Demonstrates priority queue disciplines in a realistic healthcare triage scenario. Compares FIFO vs Priority queuing to show how critical patients benefit from priority-based treatment.
@@ -1027,6 +1063,28 @@ class Resource {
   get queueLength(): number;
   get utilization(): number;
   get stats(): ResourceStatistics;
+}
+```
+
+### Batch
+
+```typescript
+class Batch<T> {
+  constructor(
+    simulation: Simulation,
+    batchSize: number,
+    options?: { name?: string; maxWait?: number; unbounded?: boolean }
+  );
+
+  put(item: T): BatchPutRequest<T>; // yield; resumes when accepted
+  take(): BatchTakeRequest<T>; // yield; then request.items, request.isPartial
+
+  get batchSize(): number;
+  get size(): number; // items accumulating
+  get readyCount(): number; // formed batches not yet taken
+  get putQueueLength(): number;
+  get takeQueueLength(): number;
+  get stats(): BatchStatistics;
 }
 ```
 
