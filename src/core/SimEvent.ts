@@ -1,4 +1,5 @@
 import { Simulation } from './Simulation.js';
+import { WaitKind } from './waitKind.js';
 import { Process } from './Process.js';
 import { validateName } from '../utils/validation.js';
 
@@ -16,6 +17,9 @@ import { validateName } from '../utils/validation.js';
  * ```
  */
 export class SimEventRequest {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.SimEvent = WaitKind.SimEvent;
+
   constructor(
     public readonly event: SimEvent,
     public value?: unknown

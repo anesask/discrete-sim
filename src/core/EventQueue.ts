@@ -59,7 +59,13 @@ export class EventQueue {
   push(event: Omit<Event, 'id' | 'seq'>): string {
     const seq = this.eventIdCounter++;
     const id = `event-${seq}`;
-    const fullEvent: Event = { ...event, id, seq };
+    const fullEvent: Event = {
+      time: event.time,
+      priority: event.priority,
+      callback: event.callback,
+      id,
+      seq,
+    };
 
     this.heap.push(fullEvent);
     this.bubbleUp(this.heap.length - 1);

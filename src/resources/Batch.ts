@@ -1,4 +1,5 @@
 import { Simulation } from '../core/Simulation.js';
+import { WaitKind } from '../core/waitKind.js';
 import {
   Monitor,
   type MonitorOptions,
@@ -58,6 +59,9 @@ export interface BatchStatistics {
  * Token returned by batch.put() to be yielded in process generators
  */
 export class BatchPutRequest<T> {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.BatchPut = WaitKind.BatchPut;
+
   constructor(
     public readonly batch: Batch<T>,
     public readonly item: T
@@ -79,6 +83,9 @@ export class BatchPutRequest<T> {
  * was released early by maxWait.
  */
 export class BatchTakeRequest<T> {
+  /** @internal discriminant for the scheduler */
+  readonly kind: typeof WaitKind.BatchTake = WaitKind.BatchTake;
+
   /** The items of the batch (set after the take completes) */
   public items?: T[];
   /** True when the batch was released by maxWait before it was full */
@@ -341,13 +348,15 @@ export class Batch<T = any> {
   _put(item: T, onAccepted: () => void, process?: Process): void {
     this.monitor?.beforeChange();
     this.totalPutsCount++;
-    this.simulation._emitResource('batch:put', {
-      resource: this,
-      name: this.options.name,
-      processId: process?.id,
-      processName: process?.name,
-      size: this.current.length,
-    });
+    if (this.simulation.isTraceEnabled('resources')) {
+      this.simulation._emitResource('batch:put', {
+        resource: this,
+        name: this.options.name,
+        processId: process?.id,
+        processName: process?.name,
+        size: this.current.length,
+      });
+    }
     if (this.options.unbounded || this.ready.length === 0) {
       this.accept(item);
       onAccepted();
@@ -369,13 +378,15 @@ export class Batch<T = any> {
     process?: Process
   ): void {
     this.monitor?.beforeChange();
-    this.simulation._emitResource('batch:take', {
-      resource: this,
-      name: this.options.name,
-      processId: process?.id,
-      processName: process?.name,
-      ready: this.ready.length,
-    });
+    if (this.simulation.isTraceEnabled('resources')) {
+      this.simulation._emitResource('batch:take', {
+        resource: this,
+        name: this.options.name,
+        processId: process?.id,
+        processName: process?.name,
+        ready: this.ready.length,
+      });
+    }
     const formed = this.ready.shift();
     if (formed) {
       this.totalTakesCount++;

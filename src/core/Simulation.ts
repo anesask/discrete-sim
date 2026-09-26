@@ -348,7 +348,14 @@ export class Simulation {
       callback,
     });
 
-    this.log('Event scheduled', { eventId, time: eventTime, delay, priority });
+    if (this.options.enableLogging) {
+      this.log('Event scheduled', {
+        eventId,
+        time: eventTime,
+        delay,
+        priority,
+      });
+    }
     return eventId;
   }
 
@@ -436,7 +443,7 @@ export class Simulation {
   cancel(eventId: string): boolean {
     const removed = this.eventQueue.remove(eventId);
     if (removed) {
-      this.log('Event cancelled', { eventId });
+      if (this.options.enableLogging) this.log('Event cancelled', { eventId });
     }
     return removed;
   }
@@ -472,11 +479,12 @@ export class Simulation {
     this.currentTime = event.time;
     this.eventsProcessed++;
 
-    this.log('Executing event', {
-      id: event.id,
-      time: event.time,
-      priority: event.priority,
-    });
+    if (this.options.enableLogging)
+      this.log('Executing event', {
+        id: event.id,
+        time: event.time,
+        priority: event.priority,
+      });
 
     // Record event trace if enabled
     if (this.enableTracing) {
