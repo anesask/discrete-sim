@@ -162,7 +162,7 @@ export class ReplicationResult<P, M extends Record<string, number>> {
   /** Names of the metrics the model returned */
   get metrics(): (keyof M & string)[] {
     const first = this.runs[0];
-    return first ? (Object.keys(first) as (keyof M & string)[]) : [];
+    return first ? Object.keys(first) : [];
   }
 
   /** All values of one metric, one per replication */
@@ -439,12 +439,14 @@ export class Experiment<P, M extends Record<string, number>> {
     if (keys.length === 0) return [];
     let combos: Partial<P>[] = [{}];
     for (const key of keys) {
-      const values = space[key];
-      if (!Array.isArray(values) || values.length === 0) return [];
+      const values: readonly P[keyof P][] = space[key];
+      if (values.length === 0) return [];
       const next: Partial<P>[] = [];
       for (const combo of combos) {
         for (const v of values) {
-          next.push({ ...combo, [key]: v } as Partial<P>);
+          const extended: Partial<P> = { ...combo };
+          extended[key] = v;
+          next.push(extended);
         }
       }
       combos = next;
