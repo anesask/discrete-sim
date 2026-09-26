@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.20] - 2026-09-26
+## [Unreleased]
+
+### Documentation
+
+- **README rewritten** ([#13](https://github.com/anesask/discrete-sim/issues/13)): down from 46 KB to a pitch, install, quick start, a table of building blocks with links, a "Coming from SimPy" mapping table, the examples list and development notes.
+- **Docs moved into the repository** under `docs/`: a guide with one page per building block (`docs/guide/`), the hand-written API reference (`docs/api/index.md`), the examples catalogue (`docs/examples.md`) and a new page on `SimEvent`. The Beginner's Guide moved from `GUIDE.md` to `docs/guide/beginners-guide.md`. These pages are the content the docs site will serve.
+
+
 
 ### Added
 

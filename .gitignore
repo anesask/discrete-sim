@@ -1,5 +1,4 @@
 # Documentation (work in progress)
-docs/
 
 # Dependencies
 node_modules/
@@ -126,3 +125,6 @@ Desktop.ini
 # Release notes and checklists
 RELEASE_CHECKLIST.md
 test-output.txt
+
+# Local planning notes, not published
+docs/internal/
