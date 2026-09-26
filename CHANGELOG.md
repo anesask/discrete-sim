@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- **Benchmark suite** ([#14](https://github.com/anesask/discrete-sim/issues/14)): `npm run bench` runs seven representative workloads (event queue, scheduled events, M/M/1, concurrent processes, priority queue, statistics, random) and writes `benchmarks/latest.json`; `benchmarks/baseline.json` records the reference numbers. The timing suites left the default test run earlier (`npm run test:perf`).
+- Event queue heap swaps no longer allocate a temporary array.
+
 ### Documentation
 
+- **Measured performance numbers** replace the estimates in the architecture page: about 500k events per second on a laptop, so a million-event run takes seconds, not minutes.
 - **Agent instructions** ([#39](https://github.com/anesask/discrete-sim/issues/39)): `AGENTS.md` at the root documents commands, layout, rules and the release process for coding agents and contributors alike (`CLAUDE.md` points to it). `.claude/agents/` holds five reusable agent definitions (test-writer, example-author, docs-sync, release-checker, sim-reviewer) with a README; `.claude/settings.json` shares safe permissions. `.claude/` is now versioned except `settings.local.json`.
 - **Every example has a README** and the examples catalogue in `docs/examples.md` lists all thirteen: added READMEs for bank-express-lane, hospital-emergency and traffic-light.
 - **README rewritten** ([#13](https://github.com/anesask/discrete-sim/issues/13)): down from 46 KB to a pitch, install, quick start, a table of building blocks with links, a "Coming from SimPy" mapping table, the examples list and development notes.

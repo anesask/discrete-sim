@@ -41,6 +41,7 @@
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run",
     "test:perf": "vitest run --config vitest.perf.config.ts",
+    "bench": "tsx benchmarks/run.ts",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",

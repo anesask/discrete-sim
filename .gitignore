@@ -127,3 +127,6 @@ test-output.txt
 
 # Local planning notes, not published
 docs/internal/
+
+# Benchmark output
+benchmarks/latest.json
