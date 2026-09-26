@@ -478,7 +478,22 @@ const histogram = stats.getHistogram('wait-time', 10);
 // Warm-up period (v0.1.3+)
 stats.setWarmupPeriod(1000); // Exclude first 1000 time units
 // Statistics now only include steady-state behavior after warm-up
+
+// Confidence intervals and summaries (v0.1.15+)
+const ci = stats.getConfidenceInterval('wait-time', 0.95);
+console.log(
+  `mean ${ci.mean.toFixed(2)} +/- ${ci.halfWidth.toFixed(2)} (n=${ci.n})`
+);
+
+// Queue waits within one run are autocorrelated; batch means gives an honest interval
+const bm = stats.getBatchMeansCI('wait-time', { batches: 20 });
+
+// Several percentiles from one sort, or everything at once
+const { 50: median, 95: p95b } = stats.getPercentiles('wait-time', [50, 95]);
+const summary = stats.getSummary('wait-time'); // n, mean, stdDev, min, max, p50, p95, p99, ci
 ```
+
+**One run is not an answer.** A single simulation run is one sample path. Report a confidence interval, and for decisions between scenarios run several replications with different seeds and compare the intervals.
 
 **Performance Note:** Mean, variance, and standard deviation calculations use Welford's online algorithm for O(1) computation, making them instantaneous even with millions of samples.
 
@@ -835,6 +850,15 @@ class Statistics {
   getSampleMean(name: string): number;
   getSampleCount(name: string): number;
   getHistogram(name: string, bins?: number): HistogramBin[];
+
+  // Inference (v0.1.15+)
+  getPercentiles(name: string, percentiles: number[]): Record<number, number>;
+  getConfidenceInterval(name: string, confidence?: number): ConfidenceInterval;
+  getBatchMeansCI(
+    name: string,
+    options?: { batches?: number; confidence?: number }
+  ): BatchMeansResult;
+  getSummary(name: string, confidence?: number): SummaryStatistics;
 
   // Export
   toJSON(): Record<string, unknown>;

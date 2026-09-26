@@ -1,5 +1,74 @@
 import { Simulation } from '../core/Simulation.js';
 import { ValidationError, validateFinite } from '../utils/validation.js';
+import { studentTCritical } from './distributions.js';
+
+/**
+ * A confidence interval for the mean of a metric.
+ */
+export interface ConfidenceInterval {
+  /** Point estimate (sample mean) */
+  mean: number;
+  /** Lower bound of the interval */
+  lower: number;
+  /** Upper bound of the interval */
+  upper: number;
+  /** Half-width of the interval (upper - mean) */
+  halfWidth: number;
+  /** Standard error of the mean used to build the interval */
+  stdError: number;
+  /** Confidence level in (0, 1), e.g. 0.95 */
+  confidence: number;
+  /** Number of observations the interval is based on */
+  n: number;
+}
+
+/**
+ * Confidence interval computed with the method of batch means.
+ */
+export interface BatchMeansResult extends ConfidenceInterval {
+  /** Number of batches used */
+  batches: number;
+  /** Observations per batch */
+  batchSize: number;
+  /** The batch means themselves */
+  batchMeans: number[];
+}
+
+/**
+ * Options for {@link Statistics.getBatchMeansCI}.
+ */
+export interface BatchMeansOptions {
+  /** Number of contiguous batches (default 20, minimum 2) */
+  batches?: number;
+  /** Confidence level in (0, 1) (default 0.95) */
+  confidence?: number;
+}
+
+/**
+ * One-call summary of a sample-tracked metric.
+ */
+export interface SummaryStatistics {
+  /** Number of samples */
+  n: number;
+  /** Sample mean */
+  mean: number;
+  /** Population standard deviation (same as getStdDev) */
+  stdDev: number;
+  /** Population variance (same as getVariance) */
+  variance: number;
+  /** Minimum observed value */
+  min: number;
+  /** Maximum observed value */
+  max: number;
+  /** Median */
+  p50: number;
+  /** 95th percentile */
+  p95: number;
+  /** 99th percentile */
+  p99: number;
+  /** Confidence interval for the mean */
+  ci: ConfidenceInterval;
+}
 
 /**
  * A single data point in a timeseries
@@ -739,6 +808,208 @@ export class Statistics {
    */
   getSampleCount(name: string): number {
     return this.sampleCounts.get(name) || 0;
+  }
+
+  /**
+   * Get several percentiles of a metric in one call. The samples are sorted
+   * once (and cached), so this is cheaper than repeated getPercentile() calls.
+   *
+   * @param name - Metric name
+   * @param percentiles - Percentiles to compute (each 0-100)
+   * @returns Map from percentile to value, e.g. `{ 50: 3.1, 95: 10.2 }`
+   *
+   * @example
+   * ```typescript
+   * const { 50: median, 95: p95, 99: p99 } = stats.getPercentiles('wait-time', [50, 95, 99]);
+   * ```
+   */
+  getPercentiles(
+    name: string,
+    percentiles: readonly number[]
+  ): Record<number, number> {
+    const result: Record<number, number> = {};
+    for (const p of percentiles) {
+      result[p] = this.getPercentile(name, p);
+    }
+    return result;
+  }
+
+  /**
+   * Confidence interval for the mean of a sample-tracked metric, using the
+   * Student's t distribution with n - 1 degrees of freedom and the sample
+   * standard deviation (n - 1 denominator).
+   *
+   * The interval assumes independent observations. Within a single run, waits
+   * of consecutive customers are usually correlated, which makes this interval
+   * too narrow; use {@link Statistics.getBatchMeansCI} for such time series, or
+   * compute the interval across independent replications.
+   *
+   * With fewer than two samples the interval is unbounded
+   * (`halfWidth = Infinity`).
+   *
+   * @param name - Metric name
+   * @param confidence - Confidence level in (0, 1), default 0.95
+   *
+   * @example
+   * ```typescript
+   * const ci = stats.getConfidenceInterval('wait-time', 0.95);
+   * console.log(`${ci.mean.toFixed(2)} +/- ${ci.halfWidth.toFixed(2)}`);
+   * ```
+   */
+  getConfidenceInterval(
+    name: string,
+    confidence: number = 0.95
+  ): ConfidenceInterval {
+    this.validateConfidence(confidence);
+
+    const n = this.getSampleCount(name);
+    const mean = this.getSampleMean(name);
+
+    if (n < 2) {
+      return {
+        mean,
+        lower: -Infinity,
+        upper: Infinity,
+        halfWidth: Infinity,
+        stdError: Infinity,
+        confidence,
+        n,
+      };
+    }
+
+    const m2 = this.sampleM2s.get(name) ?? 0;
+    const sampleVariance = m2 / (n - 1);
+    const stdError = Math.sqrt(sampleVariance / n);
+    const halfWidth = studentTCritical(confidence, n - 1) * stdError;
+
+    return {
+      mean,
+      lower: mean - halfWidth,
+      upper: mean + halfWidth,
+      halfWidth,
+      stdError,
+      confidence,
+      n,
+    };
+  }
+
+  /**
+   * Confidence interval for the mean using the method of batch means.
+   *
+   * The recorded samples are split, in recording order, into `batches`
+   * contiguous batches of equal size (any remainder at the end is dropped).
+   * Batch means of a stationary process are approximately independent and
+   * normal, so a t interval over them is valid even when individual samples
+   * are autocorrelated (queue waits, inventory levels, ...).
+   *
+   * @param name - Metric name
+   * @param options - Number of batches (default 20) and confidence (default 0.95)
+   * @throws ValidationError if there are fewer samples than batches
+   *
+   * @example
+   * ```typescript
+   * const ci = stats.getBatchMeansCI('queue-wait', { batches: 20 });
+   * ```
+   */
+  getBatchMeansCI(
+    name: string,
+    options: BatchMeansOptions = {}
+  ): BatchMeansResult {
+    const batches = options.batches ?? 20;
+    const confidence = options.confidence ?? 0.95;
+    this.validateConfidence(confidence);
+    if (!Number.isInteger(batches) || batches < 2) {
+      throw new ValidationError(
+        'batches must be an integer of at least 2 (got ' + batches + ')',
+        { batches }
+      );
+    }
+
+    const sampleData = this.samples.get(name) ?? [];
+    if (sampleData.length < batches) {
+      throw new ValidationError(
+        `Not enough samples for ${batches} batches (got ${sampleData.length}). ` +
+          'Record more samples or use fewer batches.',
+        { samples: sampleData.length, batches }
+      );
+    }
+
+    const batchSize = Math.floor(sampleData.length / batches);
+    const batchMeans: number[] = [];
+    for (let b = 0; b < batches; b++) {
+      let sum = 0;
+      const start = b * batchSize;
+      for (let i = start; i < start + batchSize; i++) {
+        sum += sampleData[i]!;
+      }
+      batchMeans.push(sum / batchSize);
+    }
+
+    const mean = batchMeans.reduce((a, b) => a + b, 0) / batches;
+    const sumSq = batchMeans.reduce((acc, m) => acc + (m - mean) ** 2, 0);
+    const stdError = Math.sqrt(sumSq / (batches - 1) / batches);
+    const halfWidth = studentTCritical(confidence, batches - 1) * stdError;
+
+    return {
+      mean,
+      lower: mean - halfWidth,
+      upper: mean + halfWidth,
+      halfWidth,
+      stdError,
+      confidence,
+      n: batches * batchSize,
+      batches,
+      batchSize,
+      batchMeans,
+    };
+  }
+
+  /**
+   * One-call summary of a sample-tracked metric: count, mean, spread, extremes,
+   * common percentiles and a confidence interval for the mean.
+   *
+   * @param name - Metric name
+   * @param confidence - Confidence level for the interval (default 0.95)
+   *
+   * @example
+   * ```typescript
+   * const s = stats.getSummary('wait-time');
+   * console.log(`n=${s.n} mean=${s.mean.toFixed(2)} p95=${s.p95.toFixed(2)} ` +
+   *             `95% CI [${s.ci.lower.toFixed(2)}, ${s.ci.upper.toFixed(2)}]`);
+   * ```
+   */
+  getSummary(name: string, confidence: number = 0.95): SummaryStatistics {
+    const {
+      50: p50,
+      95: p95,
+      99: p99,
+    } = this.getPercentiles(name, [50, 95, 99]);
+    return {
+      n: this.getSampleCount(name),
+      mean: this.getSampleMean(name),
+      stdDev: this.getStdDev(name),
+      variance: this.getVariance(name),
+      min: this.getMin(name),
+      max: this.getMax(name),
+      p50: p50!,
+      p95: p95!,
+      p99: p99!,
+      ci: this.getConfidenceInterval(name, confidence),
+    };
+  }
+
+  /**
+   * @private
+   */
+  private validateConfidence(confidence: number): void {
+    if (!(confidence > 0 && confidence < 1)) {
+      throw new ValidationError(
+        'confidence must be strictly between 0 and 1, e.g. 0.95 (got ' +
+          confidence +
+          ')',
+        { confidence }
+      );
+    }
   }
 
   /**

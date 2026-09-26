@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.15] - 2026-09-26
+
+### Added
+
+- **Confidence intervals and summaries in `Statistics`** ([#5](https://github.com/anesask/discrete-sim/issues/5)):
+  - `getConfidenceInterval(name, confidence = 0.95)`: Student-t interval for the mean of a sample-tracked metric (`{ mean, lower, upper, halfWidth, stdError, confidence, n }`). Unbounded with fewer than two samples.
+  - `getBatchMeansCI(name, { batches = 20, confidence = 0.95 })`: interval via the method of batch means, for autocorrelated within-run series such as queue waits.
+  - `getPercentiles(name, [50, 95, 99])`: several percentiles from one sort.
+  - `getSummary(name, confidence?)`: count, mean, standard deviation, variance, min, max, p50/p95/p99 and the interval in one object.
+  - Dependency-free Student-t quantiles (regularized incomplete beta with bisection, accurate to about 1e-9) in `src/statistics/distributions.ts`.
+  - New exported types `ConfidenceInterval`, `BatchMeansResult`, `BatchMeansOptions`, `SummaryStatistics`.
+- The M/M/1 example prints a 95% confidence interval next to the theoretical mean wait.
+
 ## [0.1.14] - 2026-09-26
 
 ### Added
