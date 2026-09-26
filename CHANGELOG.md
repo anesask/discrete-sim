@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.19] - 2026-09-26
+
+### Added
+
+- **Schedule** ([#10](https://github.com/anesask/discrete-sim/issues/10)): piecewise-constant, optionally periodic values over simulation time for rush hours, shifts and seasons. `new Schedule(sim, { period, segments, defaultValue })`, `current`, `at(time)`, `nextChange`, `hasMoreChanges`, `yield* waitForChange()` and `onChange(handler, { immediate })`. Non-periodic schedules hold their last value; gaps use `defaultValue` or throw.
+- **`Resource.setCapacity(n)`** and a `capacity` getter: change staffing while the simulation runs. Growing capacity grants waiting requests immediately; shrinking never interrupts anyone, surplus units are shed as they are released. `available` is clamped at 0 and `utilization` at 1 while usage exceeds a reduced capacity.
+- The bank-tellers example staffs the counter from a schedule (opening, rush, lunch, afternoon).
+
 ## [0.1.18] - 2026-09-26
 
 ### Added

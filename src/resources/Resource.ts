@@ -94,7 +94,7 @@ interface ActiveUser {
  */
 export class Resource {
   private readonly simulation: Simulation;
-  private readonly capacity: number;
+  private capacityValue: number;
   private inUseCount: number;
   private readonly queue: QueuedRequest[];
   private readonly activeUsers: ActiveUser[];
@@ -134,7 +134,7 @@ export class Resource {
     }
 
     this.simulation = simulation;
-    this.capacity = capacity;
+    this.capacityValue = capacity;
     this.inUseCount = 0;
     this.queue = [];
     this.activeUsers = [];
@@ -200,7 +200,7 @@ export class Resource {
 
     this.totalRequestsCount++;
 
-    if (this.inUseCount < this.capacity) {
+    if (this.inUseCount < this.capacityValue) {
       // Resource available, grant immediately
       this.inUseCount++;
 
@@ -424,8 +424,17 @@ export class Resource {
     this.totalReleasesCount++;
     this.inUseCount--;
 
-    // If there are queued requests, grant to next in line
-    if (this.queue.length > 0) {
+    // Grant to the next in line while capacity allows (after setCapacity()
+    // shrank the pool, units are shed here until inUse is back under capacity)
+    this.grantQueued();
+  }
+
+  /**
+   * Grant queued requests while units are available.
+   * @private
+   */
+  private grantQueued(): void {
+    while (this.queue.length > 0 && this.inUseCount < this.capacityValue) {
       const request = this.queue.shift()!;
       this.inUseCount++;
 
@@ -449,6 +458,40 @@ export class Resource {
   }
 
   /**
+   * Current capacity (number of units that can be in use at once).
+   */
+  get capacity(): number {
+    return this.capacityValue;
+  }
+
+  /**
+   * Change the capacity while the simulation runs, for shift patterns and
+   * time-varying staffing (see Schedule).
+   *
+   * Increasing capacity immediately grants waiting requests. Decreasing it
+   * below the number of units in use does not interrupt anyone: the surplus
+   * units are shed as they are released, and no queued request is granted
+   * until usage is back under the new capacity.
+   *
+   * @param capacity - New capacity (positive integer)
+   *
+   * @example
+   * ```typescript
+   * const shifts = new Schedule<number>(sim, { period: 24, segments: [
+   *   { from: 0, to: 8, value: 1 }, { from: 8, to: 17, value: 4 }, { from: 17, to: 24, value: 2 },
+   * ]});
+   * shifts.onChange((staff) => tellers.setCapacity(staff), { immediate: true });
+   * ```
+   */
+  setCapacity(capacity: number): void {
+    validateCapacity(capacity, this.options.name);
+    if (capacity === this.capacityValue) return;
+    this.updateStatistics();
+    this.capacityValue = capacity;
+    this.grantQueued();
+  }
+
+  /**
    * Get the number of resource units currently in use.
    */
   get inUse(): number {
@@ -459,7 +502,7 @@ export class Resource {
    * Get the number of available resource units.
    */
   get available(): number {
-    return this.capacity - this.inUseCount;
+    return Math.max(0, this.capacityValue - this.inUseCount);
   }
 
   /**
@@ -473,7 +516,7 @@ export class Resource {
    * Get the current utilization rate (0-1).
    */
   get utilization(): number {
-    return this.inUseCount / this.capacity;
+    return Math.min(1, this.inUseCount / this.capacityValue);
   }
 
   /**

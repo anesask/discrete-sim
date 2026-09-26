@@ -18,13 +18,22 @@ import {
   Resource,
   Statistics,
   Random,
+  Schedule,
   timeout,
 } from '../../src/index.js';
 
 // Simulation parameters
 const SIMULATION_HOURS = 6; // 6-hour banking day
 const CUSTOMER_ARRIVAL_RATE = 12; // customers per hour
-const NUM_TELLERS = 3;
+const NUM_TELLERS = 3; // tellers on duty during the rush
+// Staffing plan over the 6-hour day (hour offsets from opening): fewer tellers
+// at opening and over lunch, full staff during the rush. See Schedule (v0.1.19+).
+const STAFFING_PLAN = [
+  { from: 0, to: 1, value: 2 }, // opening hour
+  { from: 1, to: 3, value: NUM_TELLERS }, // mid-morning rush
+  { from: 3, to: 4, value: NUM_TELLERS - 1 }, // lunch cover
+  { from: 4, to: 6, value: NUM_TELLERS }, // afternoon
+];
 const RANDOM_SEED = 789;
 
 // Service level agreement (SLA) targets
@@ -154,7 +163,9 @@ function runSimulation() {
   console.log('='.repeat(60));
   console.log(`Simulation duration: ${SIMULATION_HOURS} hours`);
   console.log(`Arrival rate: ${CUSTOMER_ARRIVAL_RATE} customers/hour`);
-  console.log(`Number of tellers: ${NUM_TELLERS}`);
+  console.log(
+    `Staffing plan (tellers by hour): ${STAFFING_PLAN.map((s) => `${s.from}-${s.to}h: ${s.value}`).join(', ')}`
+  );
   console.log(`SLA target: Serve within ${SLA_WAIT_TIME_MINUTES} minutes`);
   console.log(`Random seed: ${RANDOM_SEED}`);
   console.log();
@@ -164,6 +175,18 @@ function runSimulation() {
   const tellers = new Resource(sim, NUM_TELLERS, { name: 'Tellers' });
   const stats = new Statistics(sim);
   const rng = new Random(RANDOM_SEED);
+
+  // Staff the counter from the plan: capacity changes at each boundary.
+  // Shrinking never interrupts a teller mid-transaction; the surplus position
+  // closes when that transaction ends.
+  const staffing = new Schedule<number>(sim, { segments: STAFFING_PLAN });
+  staffing.onChange(
+    (n, t) => {
+      tellers.setCapacity(n);
+      console.log(`[${t.toFixed(2)}h] Tellers on duty: ${n}`);
+    },
+    { immediate: true }
+  );
 
   // Enable sample tracking for advanced statistics (v0.1.2+)
   stats.enableSampleTracking('wait-time-minutes');
