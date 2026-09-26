@@ -49,6 +49,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Package checks (exports map, types, browser smoke)
+        run: npx publint && npx attw --pack . && node scripts/browser-smoke.mjs
+
       - name: Run examples (smoke)
         run: |
           set -e

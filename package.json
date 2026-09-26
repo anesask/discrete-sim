@@ -16,7 +16,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anesask/discrete-sim.git"
+    "url": "git+https://github.com/anesask/discrete-sim.git"
   },
   "bugs": {
     "url": "https://github.com/anesask/discrete-sim/issues"
@@ -27,9 +27,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
     }
   },
   "files": [
@@ -39,6 +44,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
+    "check:package": "npm run build && publint && attw --pack . && node scripts/browser-smoke.mjs",
     "test": "vitest run",
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "bench": "tsx benchmarks/run.ts",
@@ -53,6 +59,7 @@
     "lint:fix": "eslint src tests --fix"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.4",
     "@vitest/coverage-v8": "^4.1.11",
@@ -61,6 +68,7 @@
     "eslint-config-prettier": "^10.1.8",
     "fast-check": "^4.10.2",
     "prettier": "^3.9.9",
+    "publint": "^0.3.24",
     "tsup": "^8.5.1",
     "tsx": "^4.23.15",
     "typedoc": "^0.28.20",
@@ -71,5 +79,6 @@
   "engines": {
     "node": ">=20"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "type": "commonjs"
 }
