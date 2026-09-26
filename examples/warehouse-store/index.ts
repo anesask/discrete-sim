@@ -8,6 +8,7 @@
  * - Store resource for distinct items (pallets with unique IDs)
  * - FIFO retrieval (no filter)
  * - Filter-based retrieval (by destination, priority)
+ * - Priority put queue: rush deliveries are admitted first when the warehouse is full
  * - Statistics tracking for inventory management
  */
 
@@ -101,8 +102,9 @@ function* receivePallet(
   // Receiving time
   yield* timeout(RECEIVING_TIME);
 
-  // Store pallet
-  yield warehouse.put(pallet);
+  // Store pallet. The priority only matters while the warehouse is full:
+  // waiting rush deliveries (priority 1) are admitted before routine ones.
+  yield warehouse.put(pallet, pallet.priority);
 
   console.log(
     `[${sim.now.toFixed(2)}h] ✓ STORED: Pallet ${pallet.id} (warehouse: ${warehouse.size}/${warehouse.capacity})`
@@ -178,7 +180,9 @@ function* shipPriority(
   // Faster shipping for priority
   yield* timeout(SHIPPING_TIME * 0.8);
 
-  console.log(`[${sim.now.toFixed(2)}h] ✓ PRIORITY-SHIPPED: Pallet ${pallet.id}`);
+  console.log(
+    `[${sim.now.toFixed(2)}h] ✓ PRIORITY-SHIPPED: Pallet ${pallet.id}`
+  );
 
   forklift.release();
 }
@@ -212,7 +216,9 @@ function* shipToDestination(
 
   yield* timeout(SHIPPING_TIME);
 
-  console.log(`[${sim.now.toFixed(2)}h] ✓ DEST-SHIPPED: Pallet ${pallet.id} to ${destination}`);
+  console.log(
+    `[${sim.now.toFixed(2)}h] ✓ DEST-SHIPPED: Pallet ${pallet.id} to ${destination}`
+  );
 
   forklift.release();
 }
@@ -233,7 +239,9 @@ function* receivingTrucks(
     yield* timeout(interArrivalTime);
 
     palletCount++;
-    sim.process(() => receivePallet(sim, palletCount, warehouse, forklift, rng));
+    sim.process(() =>
+      receivePallet(sim, palletCount, warehouse, forklift, rng)
+    );
   }
 }
 
@@ -269,7 +277,9 @@ function* priorityShippingScheduler(
     yield* timeout(6); // Every 6 hours, ship priority items
 
     // Ship all priority 1 items
-    const priority1Count = warehouse.items.filter((p) => p.priority === 1).length;
+    const priority1Count = warehouse.items.filter(
+      (p) => p.priority === 1
+    ).length;
 
     if (priority1Count > 0) {
       console.log(
@@ -337,18 +347,16 @@ function printStatistics(
   console.log('='.repeat(70));
   console.log(`Simulation Duration: ${SIMULATION_HOURS} hours`);
 
-  console.log(
-    `\n${'─'.repeat(70)}\nWAREHOUSE OPERATIONS\n${'─'.repeat(70)}`
-  );
+  console.log(`\n${'─'.repeat(70)}\nWAREHOUSE OPERATIONS\n${'─'.repeat(70)}`);
   console.log(`Warehouse Capacity: ${warehouse.capacity} pallets`);
   console.log(`Final Inventory: ${warehouse.size} pallets`);
   console.log(`\nTotal Pallets Received: ${warehouseStats.totalPuts}`);
   console.log(`Total Pallets Shipped: ${warehouseStats.totalGets}`);
-  console.log(`Net Flow: ${warehouseStats.totalPuts - warehouseStats.totalGets} pallets`);
-
   console.log(
-    `\n${'─'.repeat(70)}\nPERFORMANCE METRICS\n${'─'.repeat(70)}`
+    `Net Flow: ${warehouseStats.totalPuts - warehouseStats.totalGets} pallets`
   );
+
+  console.log(`\n${'─'.repeat(70)}\nPERFORMANCE METRICS\n${'─'.repeat(70)}`);
   console.log(
     `Average Warehouse Occupancy: ${warehouseStats.averageSize.toFixed(1)} pallets (${((warehouseStats.averageSize / warehouse.capacity) * 100).toFixed(1)}%)`
   );
@@ -359,9 +367,7 @@ function printStatistics(
     `Average Shipping Wait: ${(warehouseStats.averageGetWaitTime * 60).toFixed(2)} minutes`
   );
 
-  console.log(
-    `\n${'─'.repeat(70)}\nQUEUE STATISTICS\n${'─'.repeat(70)}`
-  );
+  console.log(`\n${'─'.repeat(70)}\nQUEUE STATISTICS\n${'─'.repeat(70)}`);
   console.log(
     `Average Receiving Queue: ${warehouseStats.averagePutQueueLength.toFixed(2)}`
   );
@@ -369,9 +375,7 @@ function printStatistics(
     `Average Shipping Queue: ${warehouseStats.averageGetQueueLength.toFixed(2)}`
   );
 
-  console.log(
-    `\n${'─'.repeat(70)}\nFORKLIFT UTILIZATION\n${'─'.repeat(70)}`
-  );
+  console.log(`\n${'─'.repeat(70)}\nFORKLIFT UTILIZATION\n${'─'.repeat(70)}`);
   console.log(`Number of Forklifts: ${forklift.capacity}`);
   console.log(
     `Forklift Utilization: ${(forkliftStats.utilizationRate * 100).toFixed(1)}%`
@@ -381,14 +385,15 @@ function printStatistics(
     `Average Wait for Forklift: ${(forkliftStats.averageWaitTime * 60).toFixed(2)} minutes`
   );
 
-  console.log(
-    `\n${'─'.repeat(70)}\nINVENTORY BREAKDOWN\n${'─'.repeat(70)}`
-  );
+  console.log(`\n${'─'.repeat(70)}\nINVENTORY BREAKDOWN\n${'─'.repeat(70)}`);
   const remaining = warehouse.items;
   const byDestination = new Map<string, number>();
 
   remaining.forEach((p) => {
-    byDestination.set(p.destination, (byDestination.get(p.destination) || 0) + 1);
+    byDestination.set(
+      p.destination,
+      (byDestination.get(p.destination) || 0) + 1
+    );
   });
 
   if (remaining.length > 0) {
@@ -415,6 +420,8 @@ function runSimulation(): void {
   // Create warehouse and forklifts
   const warehouse = new Store<Pallet>(sim, WAREHOUSE_CAPACITY, {
     name: 'Distribution Warehouse',
+    // Trucks waiting to unload into a full warehouse are served by pallet priority
+    putQueueDiscipline: 'priority',
   });
   const forklift = new Resource(sim, NUM_FORKLIFTS, {
     name: 'Forklift',

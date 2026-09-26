@@ -10,6 +10,7 @@ import {
   QueueDiscipline,
   QueueDisciplineConfig,
   validateQueueDiscipline,
+  insertByDiscipline,
   getDefaultQueueConfig,
 } from '../types/queue-discipline.js';
 
@@ -562,7 +563,7 @@ export class Buffer {
   }
 
   /**
-   * Generic queue insertion based on discipline.
+   * Generic queue insertion based on discipline (shared with Store).
    * @private
    */
   private insertIntoQueue<T extends { priority: number; requestTime: number }>(
@@ -570,55 +571,6 @@ export class Buffer {
     newRequest: T,
     config: QueueDisciplineConfig
   ): void {
-    switch (config.type) {
-      case 'fifo':
-        queue.push(newRequest);
-        break;
-
-      case 'lifo':
-        queue.unshift(newRequest);
-        break;
-
-      case 'priority':
-        this.insertByPriority(queue, newRequest, config.tieBreaker === 'fifo');
-        break;
-    }
-  }
-
-  /**
-   * Insert into queue by priority.
-   * @private
-   */
-  private insertByPriority<T extends { priority: number; requestTime: number }>(
-    queue: T[],
-    newRequest: T,
-    useFifoTieBreaker: boolean
-  ): void {
-    let left = 0;
-    let right = queue.length;
-
-    while (left < right) {
-      const mid = Math.floor((left + right) / 2);
-      const existingRequest = queue[mid]!;
-
-      if (existingRequest.priority < newRequest.priority) {
-        left = mid + 1;
-      } else if (existingRequest.priority > newRequest.priority) {
-        right = mid;
-      } else {
-        // Same priority - use tie-breaker
-        if (useFifoTieBreaker) {
-          if (existingRequest.requestTime <= newRequest.requestTime) {
-            left = mid + 1;
-          } else {
-            right = mid;
-          }
-        } else {
-          right = mid;
-        }
-      }
-    }
-
-    queue.splice(left, 0, newRequest);
+    insertByDiscipline(queue, newRequest, config);
   }
 }

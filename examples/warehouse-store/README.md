@@ -65,6 +65,18 @@ yield request;
 const pallet = request.retrievedItem!;
 ```
 
+### Priority Put Queue (v0.1.13+)
+
+The warehouse is created with `putQueueDiscipline: 'priority'` and each pallet is stored with `warehouse.put(pallet, pallet.priority)`. While the warehouse has space this changes nothing. Once it is full, trucks waiting to unload are admitted by pallet priority (NYC and CHI first, MIA last) instead of arrival order. Lower the `WAREHOUSE_CAPACITY` constant to around 20 to see the put queue form and rush pallets jump ahead.
+
+```typescript
+const warehouse = new Store<Pallet>(sim, WAREHOUSE_CAPACITY, {
+  putQueueDiscipline: 'priority',
+});
+
+yield warehouse.put(pallet, pallet.priority); // 1 = rush, 3 = routine
+```
+
 ### Inspecting Store Contents
 
 ```typescript

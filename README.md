@@ -81,12 +81,12 @@ You can cancel scheduled events before they execute:
 
 ```typescript
 const eventId = sim.schedule(100, () => console.log('This will be cancelled'));
-sim.cancel(eventId);  // Returns true if cancelled, false if not found
+sim.cancel(eventId); // Returns true if cancelled, false if not found
 
 // Useful for timeout patterns
 const timeoutId = sim.schedule(30, () => console.log('Timeout!'));
 // ... do some work ...
-sim.cancel(timeoutId);  // Cancel if work completes early
+sim.cancel(timeoutId); // Cancel if work completes early
 ```
 
 ### Processes
@@ -95,15 +95,15 @@ Processes are described using generator functions. Use `yield` to wait for event
 
 ```typescript
 function* myProcess() {
-  yield* timeout(5);           // Wait 5 time units
-  yield resource.request();    // Wait for resource
-  yield* timeout(10);          // Use resource for 10 units
-  resource.release();          // Release resource
+  yield* timeout(5); // Wait 5 time units
+  yield resource.request(); // Wait for resource
+  yield* timeout(10); // Use resource for 10 units
+  resource.release(); // Release resource
 
   // Wait for condition with custom polling
   yield* waitFor(() => someValue > 10, {
-    interval: 5,         // Check every 5 time units
-    maxIterations: 100   // Timeout after 100 checks
+    interval: 5, // Check every 5 time units
+    maxIterations: 100, // Timeout after 100 checks
   });
 }
 
@@ -112,7 +112,7 @@ sim.process(myProcess);
 
 // Or keep a reference for later control
 const proc = sim.process(myProcess);
-proc.interrupt();  // Can interrupt if needed
+proc.interrupt(); // Can interrupt if needed
 ```
 
 ### Resources
@@ -130,6 +130,7 @@ function* worker() {
 ```
 
 Resources automatically track:
+
 - Utilization rate
 - Average wait time
 - Average queue length
@@ -141,28 +142,28 @@ Resources support three queue disciplines to control how waiting requests are se
 ```typescript
 // FIFO (First In First Out) - default
 const fifoServer = new Resource(sim, 1, {
-  queueDiscipline: 'fifo'  // Serve in arrival order
+  queueDiscipline: 'fifo', // Serve in arrival order
 });
 
 // LIFO (Last In First Out) - stack behavior
 const lifoServer = new Resource(sim, 1, {
-  queueDiscipline: 'lifo'  // Serve most recent arrival first
+  queueDiscipline: 'lifo', // Serve most recent arrival first
 });
 
 // Priority Queue - serve by priority value (lower = higher priority)
 const priorityServer = new Resource(sim, 1, {
-  queueDiscipline: 'priority'  // Serve by priority
+  queueDiscipline: 'priority', // Serve by priority
 });
 
 function* customer(priority: number) {
-  yield priorityServer.request(priority);  // 1 = highest, 10 = lowest
+  yield priorityServer.request(priority); // 1 = highest, 10 = lowest
   yield* timeout(5);
   priorityServer.release();
 }
 
 // Critical patient (priority 1) served before routine (priority 10)
-sim.process(() => customer(10));  // Routine - low priority
-sim.process(() => customer(1));   // Critical - high priority, goes first
+sim.process(() => customer(10)); // Routine - low priority
+sim.process(() => customer(1)); // Critical - high priority, goes first
 ```
 
 **Priority Tie-Breakers:**
@@ -173,16 +174,16 @@ For priority queues, configure how requests with the same priority are ordered:
 const server = new Resource(sim, 1, {
   queueDiscipline: {
     type: 'priority',
-    tieBreaker: 'fifo'  // Same priority? Use FIFO (default)
-  }
+    tieBreaker: 'fifo', // Same priority? Use FIFO (default)
+  },
 });
 
 // Or use LIFO for same-priority requests
 const server = new Resource(sim, 1, {
   queueDiscipline: {
     type: 'priority',
-    tieBreaker: 'lifo'  // Same priority? Use LIFO
-  }
+    tieBreaker: 'lifo', // Same priority? Use LIFO
+  },
 });
 ```
 
@@ -199,13 +200,13 @@ import { Resource, PreemptionError } from 'discrete-sim';
 
 const server = new Resource(sim, 1, {
   name: 'Server',
-  preemptive: true  // Enable preemption
+  preemptive: true, // Enable preemption
 });
 
 function* lowPriorityJob() {
   try {
-    yield server.request(10);  // Low priority
-    yield* timeout(100);       // Long job
+    yield server.request(10); // Low priority
+    yield* timeout(100); // Long job
     server.release();
   } catch (err) {
     if (err instanceof PreemptionError) {
@@ -216,7 +217,7 @@ function* lowPriorityJob() {
 }
 
 function* highPriorityJob() {
-  yield server.request(0);  // High priority - will preempt low priority
+  yield server.request(0); // High priority - will preempt low priority
   yield* timeout(5);
   server.release();
 }
@@ -225,12 +226,13 @@ function* highPriorityJob() {
 const p1 = new Process(sim, lowPriorityJob);
 const p2 = new Process(sim, highPriorityJob);
 p1.start();
-sim.schedule(10, () => p2.start());  // High priority arrives later
+sim.schedule(10, () => p2.start()); // High priority arrives later
 
 sim.run();
 ```
 
 When preemption occurs:
+
 - The preempted process throws a `PreemptionError`
 - The process can catch this error to handle cleanup
 - Statistics track the total number of preemptions
@@ -245,25 +247,25 @@ import { Buffer } from 'discrete-sim';
 // Create a fuel tank with 10,000 gallon capacity
 const fuelTank = new Buffer(sim, 10000, {
   name: 'Fuel Tank',
-  initialLevel: 5000  // Start half full
+  initialLevel: 5000, // Start half full
 });
 
 // Truck refueling (consumer)
 function* truck() {
-  yield fuelTank.get(50);  // Get 50 gallons (blocks if insufficient)
-  yield* timeout(0.1);     // Refuel for 6 minutes
+  yield fuelTank.get(50); // Get 50 gallons (blocks if insufficient)
+  yield* timeout(0.1); // Refuel for 6 minutes
 }
 
 // Tanker delivery (producer)
 function* tanker() {
-  yield* timeout(6);        // Travel time
+  yield* timeout(6); // Travel time
   yield fuelTank.put(5000); // Deliver 5000 gallons (blocks if insufficient space)
 }
 
 // Check status
-console.log(fuelTank.level);      // Current amount: 5000
-console.log(fuelTank.available);  // Space available: 5000
-console.log(fuelTank.capacity);   // Maximum: 10000
+console.log(fuelTank.level); // Current amount: 5000
+console.log(fuelTank.available); // Space available: 5000
+console.log(fuelTank.capacity); // Maximum: 10000
 ```
 
 **Buffer Queue Disciplines (v0.1.8+):**
@@ -273,43 +275,43 @@ Buffers support independent queue disciplines for put and get operations:
 ```typescript
 const buffer = new Buffer(sim, 1000, {
   name: 'Inventory',
-  putQueueDiscipline: 'priority',  // Priority for deliveries
-  getQueueDiscipline: 'fifo'       // FIFO for withdrawals
+  putQueueDiscipline: 'priority', // Priority for deliveries
+  getQueueDiscipline: 'fifo', // FIFO for withdrawals
 });
 
 // High priority delivery (rush order)
 function* urgentDelivery() {
-  yield buffer.put(100, 1);  // priority = 1 (high)
+  yield buffer.put(100, 1); // priority = 1 (high)
   // Delivered before lower priority puts
 }
 
 // Normal delivery
 function* normalDelivery() {
-  yield buffer.put(50, 10);  // priority = 10 (low)
+  yield buffer.put(50, 10); // priority = 10 (low)
 }
 ```
 
 **Key Differences from Resource:**
 
-| Feature | Resource | Buffer |
-|---------|----------|--------|
-| **Models** | Discrete capacity units (servers, machines) | Continuous quantities (fuel, money) |
-| **Operations** | `request()` / `release()` | `put()` / `get()` |
-| **Capacity** | Integer units (1, 2, 3...) | Any number (50.5 gallons, 1250 tokens) |
-| **Use Case** | Limited workers, processors | Inventory, storage, bandwidth |
+| Feature        | Resource                                    | Buffer                                 |
+| -------------- | ------------------------------------------- | -------------------------------------- |
+| **Models**     | Discrete capacity units (servers, machines) | Continuous quantities (fuel, money)    |
+| **Operations** | `request()` / `release()`                   | `put()` / `get()`                      |
+| **Capacity**   | Integer units (1, 2, 3...)                  | Any number (50.5 gallons, 1250 tokens) |
+| **Use Case**   | Limited workers, processors                 | Inventory, storage, bandwidth          |
 
 **Buffer Statistics:**
 
 ```typescript
 const stats = fuelTank.stats;
 
-console.log(stats.totalPuts);           // Number of deliveries
-console.log(stats.totalGets);           // Number of withdrawals
-console.log(stats.totalAmountPut);      // Total fuel delivered
-console.log(stats.totalAmountGot);      // Total fuel consumed
-console.log(stats.averageLevel);        // Time-weighted average inventory level
-console.log(stats.averagePutWaitTime);  // Average wait time for deliveries
-console.log(stats.averageGetWaitTime);  // Average wait time for withdrawals
+console.log(stats.totalPuts); // Number of deliveries
+console.log(stats.totalGets); // Number of withdrawals
+console.log(stats.totalAmountPut); // Total fuel delivered
+console.log(stats.totalAmountGot); // Total fuel consumed
+console.log(stats.averageLevel); // Time-weighted average inventory level
+console.log(stats.averagePutWaitTime); // Average wait time for deliveries
+console.log(stats.averageGetWaitTime); // Average wait time for withdrawals
 console.log(stats.averagePutQueueLength); // Average delivery queue length
 console.log(stats.averageGetQueueLength); // Average withdrawal queue length
 ```
@@ -348,44 +350,71 @@ function* shipNext() {
 
 // Retrieve by filter (destination)
 function* shipToNYC() {
-  const request = warehouse.get(p => p.destination === 'NYC');
+  const request = warehouse.get((p) => p.destination === 'NYC');
   yield request;
   const pallet = request.retrievedItem!;
   console.log(`Shipping ${pallet.id} to NYC`);
 }
 
 // Inspect current items
-console.log(warehouse.size);       // Number of items stored
-console.log(warehouse.available);  // Space available
-console.log(warehouse.items);      // Read-only array of items
+console.log(warehouse.size); // Number of items stored
+console.log(warehouse.available); // Space available
+console.log(warehouse.items); // Read-only array of items
 ```
 
 **Key Differences: Buffer vs Store**
 
-| Feature | Buffer | Store |
-|---------|--------|-------|
-| **Stores** | Numeric quantities | Distinct objects |
-| **Put/Get** | Amount (number) | Item (object) |
-| **Retrieval** | Always FIFO | FIFO or filter-based |
-| **Use Case** | Fuel, money, tokens | Pallets, patients, vehicles |
-| **Example** | `buffer.get(50)` | `store.get(p => p.id === 'P1')` |
+| Feature       | Buffer              | Store                           |
+| ------------- | ------------------- | ------------------------------- |
+| **Stores**    | Numeric quantities  | Distinct objects                |
+| **Put/Get**   | Amount (number)     | Item (object)                   |
+| **Retrieval** | Always FIFO         | FIFO or filter-based            |
+| **Use Case**  | Fuel, money, tokens | Pallets, patients, vehicles     |
+| **Example**   | `buffer.get(50)`    | `store.get(p => p.id === 'P1')` |
 
 **Filter-Based Retrieval:**
 
 ```typescript
 // Get by property value
-const req = store.get(item => item.priority === 1);
+const req = store.get((item) => item.priority === 1);
 
 // Get by complex condition
-const req = store.get(item =>
-  item.destination === 'NYC' && item.weight > 500
+const req = store.get(
+  (item) => item.destination === 'NYC' && item.weight > 500
 );
 
 // Get by ID
-const req = store.get(item => item.id === 'P0042');
+const req = store.get((item) => item.id === 'P0042');
 
 // No filter = FIFO (first in, first out)
 const req = store.get();
+```
+
+**Store Queue Disciplines (v0.1.13+):**
+
+Like Resource and Buffer, a Store can order its _waiting_ put and get requests with FIFO (default), LIFO or priority disciplines. The discipline decides which waiting process is served first; it does not change which stored item an unfiltered `get()` returns (always the oldest matching item).
+
+```typescript
+const warehouse = new Store<Pallet>(sim, 100, {
+  putQueueDiscipline: 'priority', // rush deliveries jump the queue when full
+  getQueueDiscipline: { type: 'priority', tieBreaker: 'fifo' },
+});
+
+// Lower number = higher priority. When the store is full, rush deliveries are
+// admitted before routine ones, regardless of arrival order.
+function* rushDelivery(pallet: Pallet) {
+  yield warehouse.put(pallet, 1);
+}
+function* routineDelivery(pallet: Pallet) {
+  yield warehouse.put(pallet, 10);
+}
+
+// Express shipping waits ahead of standard shipping for the next matching pallet
+function* expressPickup() {
+  const req = warehouse.get((p) => p.destination === 'NYC', 1);
+  yield req;
+  ship(req.retrievedItem!);
+}
 ```
 
 **Store Statistics:**
@@ -393,11 +422,11 @@ const req = store.get();
 ```typescript
 const stats = warehouse.stats;
 
-console.log(stats.totalPuts);           // Number of items stored
-console.log(stats.totalGets);           // Number of items retrieved
-console.log(stats.averageSize);         // Time-weighted average inventory
-console.log(stats.averagePutWaitTime);  // Average wait to store
-console.log(stats.averageGetWaitTime);  // Average wait to retrieve
+console.log(stats.totalPuts); // Number of items stored
+console.log(stats.totalGets); // Number of items retrieved
+console.log(stats.averageSize); // Time-weighted average inventory
+console.log(stats.averagePutWaitTime); // Average wait to store
+console.log(stats.averageGetWaitTime); // Average wait to retrieve
 console.log(stats.averagePutQueueLength); // Average store queue length
 console.log(stats.averageGetQueueLength); // Average retrieve queue length
 ```
@@ -435,13 +464,13 @@ const avgTemp = stats.getAverage('temperature');
 const count = stats.getCount('customers-served');
 
 // Percentiles for SLA tracking
-const p50 = stats.getPercentile('wait-time', 50);  // Median
+const p50 = stats.getPercentile('wait-time', 50); // Median
 const p95 = stats.getPercentile('wait-time', 95);
 const p99 = stats.getPercentile('wait-time', 99);
 
 // Variance and standard deviation (optimized with Welford's algorithm)
-const variance = stats.getVariance('wait-time');  // O(1) - instant!
-const stdDev = stats.getStdDev('wait-time');      // O(1) - instant!
+const variance = stats.getVariance('wait-time'); // O(1) - instant!
+const stdDev = stats.getStdDev('wait-time'); // O(1) - instant!
 
 // Histograms
 const histogram = stats.getHistogram('wait-time', 10);
@@ -485,7 +514,7 @@ try {
 
 // Example: Invalid timeout
 try {
-  yield* timeout(-5);
+  yield * timeout(-5);
 } catch (error) {
   console.error(error.message);
   // "delay must be non-negative (got -5). Use timeout(0) for immediate continuation..."
@@ -513,6 +542,7 @@ try {
 ```
 
 **Common Validations:**
+
 - Delays must be non-negative and finite (no NaN/Infinity)
 - Resource capacity must be a positive integer
 - Cannot release resources that aren't in use
@@ -541,7 +571,7 @@ sim.run();
 // Get execution trace
 const trace = sim.getEventTrace();
 
-trace.forEach(entry => {
+trace.forEach((entry) => {
   console.log(`Event ${entry.id}:`);
   console.log(`  Time: ${entry.time}`);
   console.log(`  Priority: ${entry.priority}`);
@@ -556,6 +586,7 @@ sim.disableEventTrace();
 ```
 
 Event tracing is useful for:
+
 - Understanding event execution order
 - Debugging priority scheduling issues
 - Performance analysis
@@ -572,6 +603,7 @@ npx tsx examples/hospital-er/index.ts
 ```
 
 **Key Features:**
+
 - Three triage levels (Critical, Urgent, Routine)
 - Comparison of FIFO vs Priority queue disciplines
 - Statistical analysis showing 70-85% reduction in critical patient wait times
@@ -588,6 +620,7 @@ npx tsx examples/mm1-queue/index.ts
 ```
 
 **Key Features:**
+
 - Validates simulation against queuing theory
 - Shows 99%+ accuracy for queue metrics
 - Demonstrates reproducible results with seeded RNG
@@ -603,6 +636,7 @@ npx tsx examples/warehouse/index.ts
 ```
 
 **Key Features:**
+
 - Multiple resource types with different capacities
 - Bottleneck identification and analysis
 - Multi-stage workflow modeling
@@ -618,6 +652,7 @@ npx tsx examples/restaurant/index.ts
 ```
 
 **Key Features:**
+
 - Variable-size customer groups (1-6 people)
 - Service phases (order, eat, pay)
 - Customer satisfaction assessment
@@ -633,6 +668,7 @@ npx tsx examples/bank-tellers/index.ts
 ```
 
 **Key Features:**
+
 - Service Level Agreement (SLA) tracking
 - Quick vs. complex transaction differentiation
 - Automated staffing recommendations
@@ -668,9 +704,10 @@ class Simulation {
 }
 
 interface SimulationResult {
-  endTime: number;           // Final simulation time
-  eventsProcessed: number;   // Number of events processed
-  statistics: {              // Simulation statistics
+  endTime: number; // Final simulation time
+  eventsProcessed: number; // Number of events processed
+  statistics: {
+    // Simulation statistics
     currentTime: number;
     eventsProcessed: number;
     eventsInQueue: number;
@@ -714,7 +751,11 @@ class ConditionTimeoutError extends Error {
 
 ```typescript
 class Resource {
-  constructor(simulation: Simulation, capacity: number, options?: ResourceOptions);
+  constructor(
+    simulation: Simulation,
+    capacity: number,
+    options?: ResourceOptions
+  );
 
   request(): ResourceRequest;
   release(): void;
@@ -844,6 +885,7 @@ npm test
 ### Event Queue
 
 Binary min-heap priority queue with O(log n) operations. Events ordered by:
+
 1. Time (ascending)
 2. Priority (ascending)
 3. ID (deterministic tie-breaking)
@@ -851,6 +893,7 @@ Binary min-heap priority queue with O(log n) operations. Events ordered by:
 ### Process Execution
 
 Generator-based with synchronous execution until first yield. Supports:
+
 - `timeout(delay)`: Wait for time to pass
 - `resource.request()`: Acquire resource (returns token to yield)
 - `waitFor(predicate, options)`: Wait for condition with configurable polling
@@ -865,6 +908,7 @@ Token-based API with synchronous callbacks to maintain discrete-event semantics.
 ### Statistics Collection
 
 Time-weighted averaging for continuous metrics:
+
 ```
 average = sum(value_i * duration_i) / total_time
 ```
@@ -881,7 +925,7 @@ discrete-sim is designed for **small to medium-scale simulations** (up to ~100,0
 - **100,000 events**: ~1-2s (good for most practical applications)
 - **1,000,000+ events**: May become slow (8-15 minutes) due to JavaScript's performance characteristics
 
-These benchmarks are for single simulation runs. 
+These benchmarks are for single simulation runs.
 For Monte Carlo analysis with multiple independent runs, consider using Node.js worker threads for parallelization.
 
 ### Memory Considerations

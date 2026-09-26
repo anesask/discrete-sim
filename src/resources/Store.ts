@@ -5,6 +5,12 @@ import {
   validatePositive,
   validateFinite,
 } from '../utils/validation.js';
+import {
+  QueueDiscipline,
+  QueueDisciplineConfig,
+  validateQueueDiscipline,
+  insertByDiscipline,
+} from '../types/queue-discipline.js';
 
 /**
  * Configuration options for a store
@@ -12,6 +18,17 @@ import {
 export interface StoreOptions {
   /** Name for the store (for debugging/logging) */
   name?: string;
+  /**
+   * Ordering of processes waiting to put an item when the store is full.
+   * Default: 'fifo'.
+   */
+  putQueueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
+  /**
+   * Ordering of processes waiting to get an item when none matches.
+   * Default: 'fifo'. Affects which waiting request is served first, not which
+   * stored item is returned (that is always the first stored item that matches).
+   */
+  getQueueDiscipline?: QueueDiscipline | QueueDisciplineConfig;
 }
 
 /**
@@ -40,13 +57,21 @@ export interface StoreStatistics {
 export class StorePutRequest<T> {
   constructor(
     public readonly store: Store<T>,
-    public readonly item: T
+    public readonly item: T,
+    /** Priority of the request (lower = higher priority); used by priority queues */
+    public readonly priority: number = 0
   ) {
     // Validate item is not null or undefined
     if (item === null || item === undefined) {
       throw new ValidationError(
         'Cannot put null or undefined item into store',
         { item }
+      );
+    }
+    if (!Number.isFinite(priority)) {
+      throw new ValidationError(
+        `Priority must be a finite number (got ${priority})`,
+        { priority }
       );
     }
   }
@@ -61,13 +86,21 @@ export class StoreGetRequest<T> {
 
   constructor(
     public readonly store: Store<T>,
-    public readonly filter?: (item: T) => boolean
+    public readonly filter?: (item: T) => boolean,
+    /** Priority of the request (lower = higher priority); used by priority queues */
+    public readonly priority: number = 0
   ) {
     // Validate filter is a function if provided
     if (filter !== undefined && typeof filter !== 'function') {
       throw new ValidationError('Filter must be a function or undefined', {
         filter: typeof filter,
       });
+    }
+    if (!Number.isFinite(priority)) {
+      throw new ValidationError(
+        `Priority must be a finite number (got ${priority})`,
+        { priority }
+      );
     }
   }
 }
@@ -78,6 +111,8 @@ export class StoreGetRequest<T> {
 interface QueuedPutRequest<T> {
   /** Time when the request was made */
   requestTime: number;
+  /** Priority of the request (lower = higher priority) */
+  priority: number;
   /** Item to put */
   item: T;
   /** Callback to call when space is available */
@@ -92,6 +127,8 @@ interface QueuedPutRequest<T> {
 interface QueuedGetRequest<T> {
   /** Time when the request was made */
   requestTime: number;
+  /** Priority of the request (lower = higher priority) */
+  priority: number;
   /** Filter function for item selection */
   filter?: (item: T) => boolean;
   /** Callback to call when item is available */
@@ -149,7 +186,11 @@ export class Store<T = any> {
   private readonly itemsArray: T[];
   private readonly putQueue: QueuedPutRequest<T>[];
   private readonly getQueue: QueuedGetRequest<T>[];
-  private readonly options: Required<StoreOptions>;
+  private readonly options: Required<
+    Omit<StoreOptions, 'putQueueDiscipline' | 'getQueueDiscipline'>
+  >;
+  private readonly putQueueConfig: QueueDisciplineConfig;
+  private readonly getQueueConfig: QueueDisciplineConfig;
 
   // Statistics tracking
   private totalPutsCount: number;
@@ -198,6 +239,12 @@ export class Store<T = any> {
     this.options = {
       name: options.name ?? 'Store',
     };
+    this.putQueueConfig = validateQueueDiscipline(
+      options.putQueueDiscipline ?? 'fifo'
+    );
+    this.getQueueConfig = validateQueueDiscipline(
+      options.getQueueDiscipline ?? 'fifo'
+    );
 
     // Initialize statistics
     this.totalPutsCount = 0;
@@ -219,6 +266,8 @@ export class Store<T = any> {
    * The process will pause until there is space available.
    *
    * @param item - Item to store (cannot be null or undefined)
+   * @param priority - Request priority for a 'priority' put queue
+   *                   (lower = served first, default 0). Ignored by FIFO/LIFO.
    * @returns Token to yield in generator function
    *
    * @example
@@ -227,10 +276,15 @@ export class Store<T = any> {
    *   yield store.put(item);
    *   // Item is now stored
    * }
+   *
+   * // Rush delivery: jumps the put queue when the store is full
+   * function* rushDelivery(item: MyItem) {
+   *   yield store.put(item, 1);
+   * }
    * ```
    */
-  put(item: T): StorePutRequest<T> {
-    return new StorePutRequest(this, item);
+  put(item: T, priority: number = 0): StorePutRequest<T> {
+    return new StorePutRequest(this, item, priority);
   }
 
   /**
@@ -240,6 +294,8 @@ export class Store<T = any> {
    *
    * @param filter - Optional filter function to select specific items.
    *                 If omitted, returns first item (FIFO).
+   * @param priority - Request priority for a 'priority' get queue
+   *                   (lower = served first, default 0). Ignored by FIFO/LIFO.
    * @returns Token to yield in generator function. After yielding,
    *          access the item via request.retrievedItem
    *
@@ -262,18 +318,24 @@ export class Store<T = any> {
    * }
    * ```
    */
-  get(filter?: (item: T) => boolean): StoreGetRequest<T> {
-    return new StoreGetRequest(this, filter);
+  get(filter?: (item: T) => boolean, priority: number = 0): StoreGetRequest<T> {
+    return new StoreGetRequest(this, filter, priority);
   }
 
   /**
    * Internal method called by Process to actually put an item.
    * @param item - Item to put
+   * @param priority - Request priority (used by a 'priority' put queue)
    * @param onAcquired - Callback to invoke when space is available
    * @param process - Process making the request
    * @internal
    */
-  _put(item: T, onAcquired: () => void, process?: Process): void {
+  _put(
+    item: T,
+    priority: number,
+    onAcquired: () => void,
+    process?: Process
+  ): void {
     // Update statistics BEFORE changing state
     this.updateStatistics();
 
@@ -289,25 +351,32 @@ export class Store<T = any> {
       // Try to fulfill waiting get requests
       this.tryFulfillGets();
     } else {
-      // No space, add to queue
-      this.putQueue.push({
-        requestTime: this.simulation.now,
-        item,
-        onAcquired,
-        process,
-      });
+      // No space, queue according to the put discipline
+      insertByDiscipline(
+        this.putQueue,
+        {
+          requestTime: this.simulation.now,
+          priority,
+          item,
+          onAcquired,
+          process,
+        },
+        this.putQueueConfig
+      );
     }
   }
 
   /**
    * Internal method called by Process to actually get an item.
    * @param filter - Optional filter function
+   * @param priority - Request priority (used by a 'priority' get queue)
    * @param onAcquired - Callback to invoke when item is available
    * @param process - Process making the request
    * @internal
    */
   _get(
     filter: ((item: T) => boolean) | undefined,
+    priority: number,
     onAcquired: (item: T) => void,
     process?: Process
   ): void {
@@ -329,13 +398,18 @@ export class Store<T = any> {
       // Try to fulfill waiting put requests
       this.tryFulfillPuts();
     } else {
-      // No matching item, add to queue
-      this.getQueue.push({
-        requestTime: this.simulation.now,
-        filter,
-        onAcquired,
-        process,
-      });
+      // No matching item, queue according to the get discipline
+      insertByDiscipline(
+        this.getQueue,
+        {
+          requestTime: this.simulation.now,
+          priority,
+          filter,
+          onAcquired,
+          process,
+        },
+        this.getQueueConfig
+      );
     }
   }
 

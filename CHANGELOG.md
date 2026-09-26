@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.13] - 2026-09-26
+
+### Added
+
+- **Queue disciplines for Store** ([#4](https://github.com/anesask/discrete-sim/issues/4)): `putQueueDiscipline` and `getQueueDiscipline` options (`'fifo' | 'lifo' | 'priority'`, or `{ type, tieBreaker }`) order the processes waiting to put into a full store or waiting for a matching item. `store.put(item, priority?)` and `store.get(filter?, priority?)` accept an optional priority (lower = served first, default 0). Existing calls are unchanged; the default stays FIFO on both queues. Completes queue discipline support across Resource, Buffer and Store.
+
+### Internal
+
+- Queue insertion logic is shared between Buffer and Store via `insertByDiscipline()` in `src/types/queue-discipline.ts`.
+
 ## [0.1.12] - 2026-09-26
 
 ### Deprecated
