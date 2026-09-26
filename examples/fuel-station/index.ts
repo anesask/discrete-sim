@@ -11,12 +11,7 @@
  * - Statistics tracking for inventory management
  */
 
-import {
-  Simulation,
-  Buffer,
-  Random,
-  timeout,
-} from '../../src/index.js';
+import { Simulation, Buffer, Random, timeout } from '../../src/index.js';
 
 // Simulation parameters
 const SIMULATION_HOURS = 24; // 24-hour simulation
@@ -59,7 +54,7 @@ function* truck(
   // Check if tank is running low
   if (fuelTank.level < LOW_FUEL_THRESHOLD && fuelTank.level >= fuelNeeded) {
     console.log(
-      `[${sim.now.toFixed(2)}h] ⚠️  WARNING: Fuel tank running low (${fuelTank.level} gallons remaining)`
+      `[${sim.now.toFixed(2)}h] WARNING: Fuel tank running low (${fuelTank.level} gallons remaining)`
     );
   }
 
@@ -94,7 +89,7 @@ function* tanker(
   fuelTank: Buffer
 ): Generator {
   console.log(
-    `[${sim.now.toFixed(2)}h] 🚛 TANKER ${deliveryNumber} arrives with ${TANKER_DELIVERY_AMOUNT} gallons (tank: ${fuelTank.level}/${fuelTank.capacity})`
+    `[${sim.now.toFixed(2)}h] TANKER ${deliveryNumber} arrives with ${TANKER_DELIVERY_AMOUNT} gallons (tank: ${fuelTank.level}/${fuelTank.capacity})`
   );
 
   // Fill time
@@ -104,7 +99,7 @@ function* tanker(
   yield fuelTank.put(TANKER_DELIVERY_AMOUNT);
 
   console.log(
-    `[${sim.now.toFixed(2)}h] 🚛 TANKER ${deliveryNumber} delivered ${TANKER_DELIVERY_AMOUNT} gallons (tank now: ${fuelTank.level}/${fuelTank.capacity}, available: ${fuelTank.available})`
+    `[${sim.now.toFixed(2)}h] TANKER ${deliveryNumber} delivered ${TANKER_DELIVERY_AMOUNT} gallons (tank now: ${fuelTank.level}/${fuelTank.capacity}, available: ${fuelTank.available})`
   );
 }
 
@@ -158,23 +153,23 @@ function printStatistics(fuelTank: Buffer, sim: Simulation): void {
   console.log(`\nFuel Tank Capacity: ${TANK_CAPACITY} gallons`);
   console.log(`Initial Fuel Level: ${INITIAL_FUEL} gallons`);
   console.log(`Final Fuel Level: ${fuelTank.level} gallons`);
-  console.log(
-    `\n${'─'.repeat(70)}\nOPERATIONS SUMMARY\n${'─'.repeat(70)}`
-  );
+  console.log(`\n${'-'.repeat(70)}\nOPERATIONS SUMMARY\n${'-'.repeat(70)}`);
   console.log(`Total Trucks Served: ${stats.totalGets}`);
-  console.log(`Total Fuel Dispensed: ${stats.totalAmountGot.toFixed(0)} gallons`);
+  console.log(
+    `Total Fuel Dispensed: ${stats.totalAmountGot.toFixed(0)} gallons`
+  );
   console.log(
     `Average Fuel per Truck: ${(stats.totalAmountGot / stats.totalGets).toFixed(1)} gallons`
   );
   console.log(`\nTotal Tanker Deliveries: ${stats.totalPuts}`);
-  console.log(`Total Fuel Delivered: ${stats.totalAmountPut.toFixed(0)} gallons`);
+  console.log(
+    `Total Fuel Delivered: ${stats.totalAmountPut.toFixed(0)} gallons`
+  );
   console.log(
     `Average Delivery Size: ${(stats.totalAmountPut / stats.totalPuts).toFixed(0)} gallons`
   );
 
-  console.log(
-    `\n${'─'.repeat(70)}\nQUEUE PERFORMANCE\n${'─'.repeat(70)}`
-  );
+  console.log(`\n${'-'.repeat(70)}\nQUEUE PERFORMANCE\n${'-'.repeat(70)}`);
   console.log(
     `Average Truck Wait Time: ${(stats.averageGetWaitTime * 60).toFixed(2)} minutes`
   );
@@ -193,9 +188,7 @@ function printStatistics(fuelTank: Buffer, sim: Simulation): void {
     `Average Tanker Queue Length: ${stats.averagePutQueueLength.toFixed(2)}`
   );
 
-  console.log(
-    `\n${'─'.repeat(70)}\nINVENTORY METRICS\n${'─'.repeat(70)}`
-  );
+  console.log(`\n${'-'.repeat(70)}\nINVENTORY METRICS\n${'-'.repeat(70)}`);
   console.log(
     `Average Fuel Level: ${stats.averageLevel.toFixed(0)} gallons (${((stats.averageLevel / TANK_CAPACITY) * 100).toFixed(1)}% capacity)`
   );

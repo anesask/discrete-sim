@@ -26,14 +26,14 @@ function* trafficLight(
     yield* timeout(redDuration);
 
     // Change to green
-    console.log(`[${sim.now.toFixed(0)}] Traffic light: RED → GREEN`);
+    console.log(`[${sim.now.toFixed(0)}] Traffic light: RED -> GREEN`);
     greenLight.trigger({ time: sim.now, phase: 'green' });
 
     // Green light period
     yield* timeout(greenDuration);
 
     // Change to red (reset event for next cycle)
-    console.log(`[${sim.now.toFixed(0)}] Traffic light: GREEN → RED`);
+    console.log(`[${sim.now.toFixed(0)}] Traffic light: GREEN -> RED`);
     greenLight.reset();
   }
 }
@@ -81,11 +81,13 @@ function runSimulation() {
   console.log(`Green duration: ${GREEN_DURATION}s\n`);
 
   // Start traffic light controller
-  sim.process(() => trafficLight(sim, greenLight, RED_DURATION, GREEN_DURATION));
+  sim.process(() =>
+    trafficLight(sim, greenLight, RED_DURATION, GREEN_DURATION)
+  );
 
   // Cars arrive at random intervals
   const carArrivals = [
-    5,  // Arrives during first red
+    5, // Arrives during first red
     12, // Arrives during first red
     25, // Arrives near end of first red
     35, // Arrives during first green
@@ -104,11 +106,17 @@ function runSimulation() {
   // Print statistics
   console.log('\n=== Simulation Results ===');
   console.log(`Total cars: ${stats.getSampleCount('wait-time')}`);
-  console.log(`Average wait time: ${stats.getSampleMean('wait-time').toFixed(2)}s`);
+  console.log(
+    `Average wait time: ${stats.getSampleMean('wait-time').toFixed(2)}s`
+  );
   console.log(`Min wait time: ${stats.getMin('wait-time').toFixed(2)}s`);
   console.log(`Max wait time: ${stats.getMax('wait-time').toFixed(2)}s`);
-  console.log(`Median wait time (P50): ${stats.getPercentile('wait-time', 50).toFixed(2)}s`);
-  console.log(`95th percentile wait time: ${stats.getPercentile('wait-time', 95).toFixed(2)}s`);
+  console.log(
+    `Median wait time (P50): ${stats.getPercentile('wait-time', 50).toFixed(2)}s`
+  );
+  console.log(
+    `95th percentile wait time: ${stats.getPercentile('wait-time', 95).toFixed(2)}s`
+  );
 }
 
 // Run the simulation
