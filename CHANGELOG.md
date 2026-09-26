@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Random number generator replaced** ([#47](https://github.com/anesask/discrete-sim/issues/47)): the 32-bit linear congruential generator is gone. `Random` now uses xoshiro128** seeded through splitmix32 (period 2^128 - 1, no weak low bits). Same API and seed range, but **every seeded sequence changes**; results from earlier versions are not reproducible bit for bit. `getSeed()` now returns the seed the generator was created or last reseeded with rather than the evolving internal state.
+
+### Added
+
+- **Independent random streams**: `rng.stream(name)` derives a reproducible generator per source of randomness; `rng.spawn()` derives a child from the current output; `getState()` / `setState()` checkpoint a generator; `Random.randomSeed()` gives a fresh 32-bit seed.
+- **`sim.random` and `sim.seed`** ([#48](https://github.com/anesask/discrete-sim/issues/48)): the simulation owns a generator seeded from `randomSeed`; `sim.seed` is always defined so a run can be reproduced; `reset()` reseeds it.
+
+### Fixed
+
+- `new Simulation({ randomSeed })` was stored and never used; it now seeds `sim.random`.
+
 ### Internal
 
 - **Benchmark suite** ([#14](https://github.com/anesask/discrete-sim/issues/14)): `npm run bench` runs seven representative workloads (event queue, scheduled events, M/M/1, concurrent processes, priority queue, statistics, random) and writes `benchmarks/latest.json`; `benchmarks/baseline.json` records the reference numbers. The timing suites left the default test run earlier (`npm run test:perf`).
@@ -19,8 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Every example has a README** and the examples catalogue in `docs/examples.md` lists all thirteen: added READMEs for bank-express-lane, hospital-emergency and traffic-light.
 - **README rewritten** ([#13](https://github.com/anesask/discrete-sim/issues/13)): down from 46 KB to a pitch, install, quick start, a table of building blocks with links, a "Coming from SimPy" mapping table, the examples list and development notes.
 - **Docs moved into the repository** under `docs/`: a guide with one page per building block (`docs/guide/`), the hand-written API reference (`docs/api/index.md`), the examples catalogue (`docs/examples.md`) and a new page on `SimEvent`. The Beginner's Guide moved from `GUIDE.md` to `docs/guide/beginners-guide.md`. These pages are the content the docs site will serve.
-
-
 
 ### Added
 

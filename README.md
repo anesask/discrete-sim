@@ -26,10 +26,10 @@ Node 20 or newer.
 ## Quick Start
 
 ```typescript
-import { Simulation, Resource, Random, Statistics, timeout } from 'discrete-sim';
+import { Simulation, Resource, Statistics, timeout } from 'discrete-sim';
 
-const sim = new Simulation();
-const rng = new Random(42);
+const sim = new Simulation({ randomSeed: 42 });
+const rng = sim.random;
 const stats = new Statistics(sim);
 stats.enableSampleTracking('wait');
 
@@ -37,16 +37,16 @@ const teller = new Resource(sim, 1, { name: 'Teller' });
 
 function* customer(id: number) {
   const arrived = sim.now;
-  yield teller.request();                       // wait for the teller
+  yield teller.request(); // wait for the teller
   stats.recordSample('wait', sim.now - arrived);
-  yield* timeout(rng.exponential(4));           // service time
+  yield* timeout(rng.exponential(4)); // service time
   teller.release();
 }
 
 function* arrivals() {
   for (let i = 0; i < 100; i++) {
     sim.process(() => customer(i));
-    yield* timeout(rng.exponential(5));         // inter-arrival time
+    yield* timeout(rng.exponential(5)); // inter-arrival time
   }
 }
 
@@ -54,45 +54,49 @@ sim.process(arrivals);
 sim.run();
 
 const ci = stats.getConfidenceInterval('wait');
-console.log(`mean wait ${ci.mean.toFixed(2)} (95% CI +/- ${ci.halfWidth.toFixed(2)})`);
-console.log(`teller utilization ${(teller.stats.utilizationRate * 100).toFixed(0)}%`);
+console.log(
+  `mean wait ${ci.mean.toFixed(2)} (95% CI +/- ${ci.halfWidth.toFixed(2)})`
+);
+console.log(
+  `teller utilization ${(teller.stats.utilizationRate * 100).toFixed(0)}%`
+);
 ```
 
 ## What is in the box
 
-| Building block | What it does | Guide |
-|---|---|---|
-| `Simulation` | Virtual clock and event queue; `run()`, `runAsync()`, `runRealtime()`, tracing | [Simulation](docs/guide/simulation.md) |
-| Processes, `timeout`, `waitFor` | Generator-based behaviour; `anyOf` / `allOf` races and joins, `process.done()` | [Processes](docs/guide/processes.md) |
-| `Resource` | Limited capacity with FIFO / LIFO / priority queues, preemption, `setCapacity()` | [Resources](docs/guide/resources.md) |
-| `Buffer`, `Store`, `Batch` | Quantities, distinct items, and collect-then-release batches | [Buffer, Store and Batch](docs/guide/buffer-store-batch.md) |
-| `Schedule`, `SimEvent` | Time-varying parameters (shifts, rush hours) and signalling between processes | [Schedules and Events](docs/guide/schedules.md) |
-| `Statistics` | Time-weighted averages, counters, percentiles, histograms, confidence intervals, batch means | [Statistics](docs/guide/statistics.md) |
-| `Random` | Seeded generator with uniform, exponential, normal, lognormal, gamma, Erlang, Weibull, beta, Poisson, geometric, empirical and weighted draws | [Random Numbers](docs/guide/random.md) |
-| `Experiment` | Replications and parameter sweeps with seeds derived per run and intervals across runs | [Experiments](docs/guide/experiments.md) |
-| `ValidationError` | Every input checked, every error says what to do instead | [Errors](docs/guide/errors.md) |
+| Building block                  | What it does                                                                                                                                  | Guide                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `Simulation`                    | Virtual clock and event queue; `run()`, `runAsync()`, `runRealtime()`, tracing                                                                | [Simulation](docs/guide/simulation.md)                      |
+| Processes, `timeout`, `waitFor` | Generator-based behaviour; `anyOf` / `allOf` races and joins, `process.done()`                                                                | [Processes](docs/guide/processes.md)                        |
+| `Resource`                      | Limited capacity with FIFO / LIFO / priority queues, preemption, `setCapacity()`                                                              | [Resources](docs/guide/resources.md)                        |
+| `Buffer`, `Store`, `Batch`      | Quantities, distinct items, and collect-then-release batches                                                                                  | [Buffer, Store and Batch](docs/guide/buffer-store-batch.md) |
+| `Schedule`, `SimEvent`          | Time-varying parameters (shifts, rush hours) and signalling between processes                                                                 | [Schedules and Events](docs/guide/schedules.md)             |
+| `Statistics`                    | Time-weighted averages, counters, percentiles, histograms, confidence intervals, batch means                                                  | [Statistics](docs/guide/statistics.md)                      |
+| `Random`                        | Seeded generator with uniform, exponential, normal, lognormal, gamma, Erlang, Weibull, beta, Poisson, geometric, empirical and weighted draws | [Random Numbers](docs/guide/random.md)                      |
+| `Experiment`                    | Replications and parameter sweeps with seeds derived per run and intervals across runs                                                        | [Experiments](docs/guide/experiments.md)                    |
+| `ValidationError`               | Every input checked, every error says what to do instead                                                                                      | [Errors](docs/guide/errors.md)                              |
 
 Full signatures: [API reference](docs/api/index.md). How it works and what it does not do: [Architecture and performance](docs/guide/architecture.md).
 
 ## Coming from SimPy
 
-| SimPy | discrete-sim | Notes |
-|---|---|---|
-| `Environment()` | `new Simulation()` | `sim.now`, `sim.run(until)` |
-| `env.process(gen())` | `sim.process(gen)` | Pass the generator function; returns a `Process` |
-| `yield env.timeout(5)` | `yield* timeout(5)` | Note the `yield*` |
-| `Resource(env, capacity)` | `new Resource(sim, capacity)` | `yield res.request()` then `res.release()` |
-| `PriorityResource` | `new Resource(sim, n, { queueDiscipline: 'priority' })` | `request(priority)`, lower = first |
-| `PreemptiveResource` | `new Resource(sim, n, { preemptive: true })` | Preempted process receives `PreemptionError` |
-| `Container` | `Buffer` | `put(amount)` / `get(amount)` |
-| `Store`, `FilterStore` | `Store` | `get(filterFn)` for filtering |
-| `Event`, `succeed()` | `SimEvent`, `trigger(value)` | `wait()`, `reset()` for reuse |
-| `yield proc` | `yield proc.done()` | Result tells how the child ended |
-| `yield req \| env.timeout(5)` | `yield* anyOf([req, timeout(5)])` | Losing branches are cancelled |
-| `yield a & b` | `yield* allOf([a, b])` | |
-| `RealtimeEnvironment` | `sim.runRealtime({ factor })` | Pause, resume, change speed |
-| `random` module | `Random` | Seeded, more distributions |
-| batching, schedules, replications | `Batch`, `Schedule`, `Experiment` | No SimPy equivalent |
+| SimPy                             | discrete-sim                                            | Notes                                            |
+| --------------------------------- | ------------------------------------------------------- | ------------------------------------------------ |
+| `Environment()`                   | `new Simulation()`                                      | `sim.now`, `sim.run(until)`                      |
+| `env.process(gen())`              | `sim.process(gen)`                                      | Pass the generator function; returns a `Process` |
+| `yield env.timeout(5)`            | `yield* timeout(5)`                                     | Note the `yield*`                                |
+| `Resource(env, capacity)`         | `new Resource(sim, capacity)`                           | `yield res.request()` then `res.release()`       |
+| `PriorityResource`                | `new Resource(sim, n, { queueDiscipline: 'priority' })` | `request(priority)`, lower = first               |
+| `PreemptiveResource`              | `new Resource(sim, n, { preemptive: true })`            | Preempted process receives `PreemptionError`     |
+| `Container`                       | `Buffer`                                                | `put(amount)` / `get(amount)`                    |
+| `Store`, `FilterStore`            | `Store`                                                 | `get(filterFn)` for filtering                    |
+| `Event`, `succeed()`              | `SimEvent`, `trigger(value)`                            | `wait()`, `reset()` for reuse                    |
+| `yield proc`                      | `yield proc.done()`                                     | Result tells how the child ended                 |
+| `yield req \| env.timeout(5)`     | `yield* anyOf([req, timeout(5)])`                       | Losing branches are cancelled                    |
+| `yield a & b`                     | `yield* allOf([a, b])`                                  |                                                  |
+| `RealtimeEnvironment`             | `sim.runRealtime({ factor })`                           | Pause, resume, change speed                      |
+| `random` module                   | `Random`                                                | Seeded, more distributions                       |
+| batching, schedules, replications | `Batch`, `Schedule`, `Experiment`                       | No SimPy equivalent                              |
 
 Not available: `Interrupt` as a distinct event class (use `process.interrupt(error)`), `Condition` events with custom evaluators, `Process.target`.
 

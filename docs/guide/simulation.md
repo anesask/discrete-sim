@@ -2,6 +2,10 @@
 
 The `Simulation` owns the virtual clock and the event queue. Time advances from event to event, never in real time, unless you ask for it.
 
+## Seeding
+
+`new Simulation({ randomSeed: 42 })` seeds the built-in generator `sim.random`. Take named streams from it (`sim.random.stream('arrivals')`) for independent sources of randomness. `sim.seed` is always defined, so a run can report the seed that produced it. See [Random Numbers](random.md).
+
 ## Simulation Time
 
 The simulation maintains a virtual clock that advances from event to event (not real-time).
