@@ -412,13 +412,25 @@ export function validateProcessState(
  * ```
  */
 export function validateYieldedValue(value: unknown): void {
-  const validTypes = ['Timeout', 'ResourceRequest', 'Condition'];
+  const validTypes = [
+    'Timeout',
+    'Condition',
+    'ResourceRequest',
+    'BufferPutRequest',
+    'BufferGetRequest',
+    'StorePutRequest',
+    'StoreGetRequest',
+    'SimEventRequest',
+    'ProcessDoneRequest',
+    'AnyOfRequest',
+    'AllOfRequest',
+  ];
   const typeName = value?.constructor?.name;
 
   if (!typeName || !validTypes.includes(typeName)) {
     throw new ValidationError(
       `Invalid yield value in process generator. Expected one of: ${validTypes.join(', ')}. Got: ${typeName || typeof value}. ` +
-        `Did you forget to use yield* for timeout() or forget to call resource.request()?`,
+        `Did you forget to use yield* for timeout(), anyOf() and allOf(), or forget to call resource.request()?`,
       { receivedType: typeName || typeof value, validTypes }
     );
   }

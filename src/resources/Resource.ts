@@ -243,6 +243,25 @@ export class Resource {
   }
 
   /**
+   * Remove a waiting request from the queue, identified by its callback.
+   * Used when a process is interrupted or when a composite wait (anyOf) is
+   * settled by another branch. No-op if the request is not queued (for
+   * example because it was already granted).
+   *
+   * @returns true if a queued request was removed
+   * @internal
+   */
+  _cancelAcquire(onAcquired: () => void): boolean {
+    const index = this.queue.findIndex((q) => q.onAcquired === onAcquired);
+    if (index === -1) {
+      return false;
+    }
+    this.updateStatistics();
+    this.queue.splice(index, 1);
+    return true;
+  }
+
+  /**
    * Insert request into queue according to the configured queue discipline.
    * @private
    */

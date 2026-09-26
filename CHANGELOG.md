@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17] - 2026-09-26
+
+### Added
+
+- **Process composition** ([#7](https://github.com/anesask/discrete-sim/issues/7)):
+  - `process.done()`: wait for another process to finish; `result.state` is `'completed'` or `'interrupted'` (with the error).
+  - `yield* anyOf([...])`: wait for the first of several branches (resource/buffer/store requests, `event.wait()`, `process.done()`, `timeout(n)`). Pending branches are cancelled automatically; `result.winner`, `result.index` and `result.completed` describe the outcome. Enables reneging and balking patterns.
+  - `yield* allOf([...])`: wait until every branch has completed (barrier / join).
+  - New exports `ProcessDoneRequest`, `AnyOfRequest`, `AllOfRequest`, `Waitable` and the helpers `anyOf`, `allOf`; `Process.interruptReason` getter.
+- Example `examples/bank-renege/`: customers leave when their patience runs out.
+
+### Fixed
+
+- **Interrupting a waiting process now cleans up its request.** Previously a process interrupted while queued for a Resource, Buffer or Store stayed in the queue and was later granted the unit, which leaked capacity. All pending waits (queued requests, timeouts, event waiters, done() subscriptions) are cancelled on `interrupt()`. A grant that arrives in the same instant a process stops waiting is given back.
+- A `waitFor()` poll no longer keeps running after the process handled an interruption and moved on.
+
+### Internal
+
+- `Resource._cancelAcquire`, `Buffer._cancelPut/_cancelGet`, `Store._cancelPut/_cancelGet` remove a queued request by callback identity.
+- The two copies of the yield dispatch in `Process` were merged into one.
+
 ## [0.1.16] - 2026-09-26
 
 ### Added

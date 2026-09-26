@@ -414,6 +414,32 @@ export class Store<T = any> {
   }
 
   /**
+   * Remove a waiting put request, identified by its callback.
+   * @returns true if a queued request was removed
+   * @internal
+   */
+  _cancelPut(onAcquired: () => void): boolean {
+    const index = this.putQueue.findIndex((q) => q.onAcquired === onAcquired);
+    if (index === -1) return false;
+    this.updateStatistics();
+    this.putQueue.splice(index, 1);
+    return true;
+  }
+
+  /**
+   * Remove a waiting get request, identified by its callback.
+   * @returns true if a queued request was removed
+   * @internal
+   */
+  _cancelGet(onAcquired: (item: T) => void): boolean {
+    const index = this.getQueue.findIndex((q) => q.onAcquired === onAcquired);
+    if (index === -1) return false;
+    this.updateStatistics();
+    this.getQueue.splice(index, 1);
+    return true;
+  }
+
+  /**
    * Try to fulfill waiting get requests after a put.
    * @private
    */

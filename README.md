@@ -115,6 +115,46 @@ const proc = sim.process(myProcess);
 proc.interrupt(); // Can interrupt if needed
 ```
 
+### Process Composition (v0.1.17+)
+
+Wait for another process, race several waits, or wait for all of them.
+
+```typescript
+import { anyOf, allOf, timeout } from 'discrete-sim';
+
+// Join: wait for a child process to finish
+function* dispatcher() {
+  const truck = sim.process(loadTruck);
+  const done = truck.done();
+  yield done; // resumes when loadTruck ends
+  console.log(done.result?.state); // 'completed' | 'interrupted'
+}
+
+// Race: request with a patience limit (reneging)
+function* impatientCustomer() {
+  const request = teller.request();
+  const result = yield* anyOf([request, timeout(10)]);
+  if (result.winner === request) {
+    yield* timeout(5); // served
+    teller.release();
+  } else {
+    stats.increment('reneged'); // gave up; the request left the queue automatically
+  }
+}
+
+// Barrier: wait for everything
+function* assembly() {
+  yield* allOf([partA.done(), partB.done(), crane.request()]);
+  // both parts are finished and the crane is ours
+}
+```
+
+Branches can be resource, buffer and store requests, `event.wait()`, `process.done()` and `timeout(n)`. When an `anyOf` settles, every branch that has not completed is cancelled: queued requests leave their queues, timeouts are unscheduled, event waiters are removed. If several branches complete at the same instant they are all listed in `result.completed`, and any resource they acquired is yours to release. `waitFor()` conditions are polled and cannot be combined; use a `SimEvent` instead.
+
+Interrupting a process cancels whatever it is waiting on, including all pending branches of a composite wait.
+
+See [`examples/bank-renege/`](examples/bank-renege/) for a complete reneging model.
+
 ### Resources
 
 Resources represent shared, limited-capacity entities (servers, machines, staff).
@@ -717,6 +757,16 @@ npx tsx examples/experiment-mm1/index.ts
 
 [Full documentation](examples/experiment-mm1/README.md)
 
+### Bank with Impatient Customers (Reneging)
+
+Customers race a teller request against their patience with `anyOf`; those who give up leave the queue cleanly.
+
+```bash
+npx tsx examples/bank-renege/index.ts
+```
+
+[Full documentation](examples/bank-renege/README.md)
+
 ### Hospital Emergency Room (Priority Queues)
 
 Demonstrates priority queue disciplines in a realistic healthcare triage scenario. Compares FIFO vs Priority queuing to show how critical patients benefit from priority-based treatment.
@@ -847,10 +897,26 @@ class Process {
   start(): void;
   interrupt(reason?: Error): void;
 
+  done(): ProcessDoneRequest;          // yield to wait for this process
   get isRunning(): boolean;
   get isCompleted(): boolean;
   get isInterrupted(): boolean;
+  get interruptReason(): Error | undefined;
 }
+
+// Composition (v0.1.17+)
+function* anyOf(branches: WaitableInput[]): Generator<AnyOfRequest, AnyOfResult, void>;
+function* allOf(branches: WaitableInput[]): Generator<AllOfRequest, Waitable[], void>;
+
+interface AnyOfResult {
+  winner: Waitable;        // first branch to complete
+  index: number;           // its position in the branches array
+  completed: Waitable[];   // every branch that completed at that instant
+}
+
+type Waitable =
+  | Timeout | ResourceRequest | BufferPutRequest | BufferGetRequest
+  | StorePutRequest<any> | StoreGetRequest<any> | SimEventRequest | ProcessDoneRequest;
 
 // Helper functions
 function* timeout(delay: number): Generator<Timeout, void, void>;
