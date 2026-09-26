@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.12] - 2026-09-26
+
+### Deprecated
+
+- **React Fast Refresh checker** ([#12](https://github.com/anesask/discrete-sim/issues/12)): `analyzeExportsForReact`, `warnReactCompatibilityIssues`, `withReactCompatCheck` and the `ExportAnalysis` type are deprecated and will be removed from the package in v0.3.0. They have nothing to do with discrete-event simulation. Calling them outside test/production logs a one-time notice. A standalone copy now lives in `examples/react-integration/react-compat-checker.ts`; copy it into your own project if you use it.
+
 ## [0.1.11] - 2026-09-26
 
 ### Changed

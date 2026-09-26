@@ -409,3 +409,28 @@ describe('ReactCompatChecker', () => {
     });
   });
 });
+
+describe('deprecation notice', () => {
+  const originalEnv = process.env.NODE_ENV;
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalEnv;
+  });
+
+  it('warns once per process outside test and production environments', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    process.env.NODE_ENV = 'development';
+
+    analyzeExportsForReact({ useThing: () => {} });
+    analyzeExportsForReact({ useOther: () => {} });
+    withReactCompatCheck('Module', { useThing: () => {} });
+
+    const deprecationCalls = warnSpy.mock.calls.filter((call) =>
+      String(call[0]).includes('deprecated')
+    );
+    expect(deprecationCalls).toHaveLength(1);
+    expect(String(deprecationCalls[0]![0])).toContain('v0.3.0');
+
+    warnSpy.mockRestore();
+  });
+});
