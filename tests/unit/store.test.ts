@@ -125,7 +125,7 @@ describe('Store', () => {
 
     it('should reject null item', () => {
       const sim = new Simulation();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const store = new Store<any>(sim, 100);
 
       expect(() => store.put(null)).toThrow(ValidationError);
@@ -133,7 +133,7 @@ describe('Store', () => {
 
     it('should reject undefined item', () => {
       const sim = new Simulation();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const store = new Store<any>(sim, 100);
 
       expect(() => store.put(undefined)).toThrow(ValidationError);
@@ -357,10 +357,9 @@ describe('Store', () => {
 
     it('should reject invalid filter (not a function)', () => {
       const sim = new Simulation();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const store = new Store<any>(sim, 100);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
       expect(() => store.get('not a function' as any)).toThrow(ValidationError);
     });
   });

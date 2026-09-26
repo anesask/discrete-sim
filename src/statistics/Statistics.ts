@@ -328,10 +328,10 @@ export class Statistics {
   toJSON(): object {
     const result: Record<string, unknown> = {
       simulationTime: this.simulation.now,
-      averages: {} as Record<string, number>,
-      counters: {} as Record<string, number>,
-      timeseries: {} as Record<string, TimePoint[]>,
-      samples: {} as Record<string, unknown>,
+      averages: {},
+      counters: {},
+      timeseries: {},
+      samples: {},
     };
 
     // Collect all averages

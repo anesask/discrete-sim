@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2026-09-26
+
+### Changed
+
+- **Node.js 20 or newer is required** (`engines.node` was `>=16`). Node 16 and 18 are end-of-life and the test tooling no longer runs on them. The library code itself is unchanged and still targets ES2020.
+- `package.json` declares `"sideEffects": false` so bundlers can tree-shake unused exports.
+
+### Internal
+
+- **Toolchain upgrade** ([#3](https://github.com/anesask/discrete-sim/issues/3)): ESLint 10 with flat config (`eslint.config.mjs`) and `typescript-eslint` 8 replace ESLint 8 and the legacy `.eslintrc.json`; `eslint-config-prettier` 10; vitest 4.1; TypeScript 5.9; typedoc 0.28; `@types/node` 22. Lint now also covers `tests/`. TypeScript 7 was evaluated and deferred because `typescript-eslint` does not support it yet.
+- Performance and benchmark suites moved to `npm run test:perf` (wall-clock assertions were flaky on shared CI runners); `npm test` runs the functional suites.
+- Dependabot removed; dependency upgrades are done deliberately.
+
 ## [0.1.10] - 2026-09-26
 
 ### Internal

@@ -256,7 +256,7 @@ describe('Process', () => {
           events.push('start');
           yield* timeout(10);
           events.push('normal-completion');
-        } catch (error) {
+        } catch {
           events.push('caught-interrupt');
         }
       }

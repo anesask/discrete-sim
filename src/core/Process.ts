@@ -434,7 +434,7 @@ export class Process {
           this.simulation._removeProcess(this);
           return;
         }
-      } catch (error) {
+      } catch {
         // Process didn't handle the interrupt, so it terminates
         this.state = 'interrupted';
         this.simulation._removeProcess(this);

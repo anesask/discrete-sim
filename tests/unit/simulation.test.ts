@@ -276,14 +276,13 @@ describe('Simulation', () => {
       const callback2 = vi.fn();
       const callback3 = vi.fn();
 
-      let id3: string;
+      const id3 = sim.schedule(30, callback3);
 
       sim.schedule(10, () => {
         callback1();
         sim.cancel(id3);
       });
       sim.schedule(20, callback2);
-      id3 = sim.schedule(30, callback3);
 
       sim.run();
 
@@ -533,7 +532,7 @@ describe('Simulation', () => {
         try {
           yield* timeout(100);
           events.push('completed');
-        } catch (error) {
+        } catch {
           events.push('interrupted');
         }
       });
@@ -553,7 +552,7 @@ describe('Simulation', () => {
         try {
           yield* timeout(100);
           events.push('p1-completed');
-        } catch (error) {
+        } catch {
           events.push('p1-interrupted');
         }
       });
@@ -563,7 +562,7 @@ describe('Simulation', () => {
         try {
           yield* timeout(50);
           events.push('p2-completed');
-        } catch (error) {
+        } catch {
           events.push('p2-interrupted');
         }
       });
@@ -622,7 +621,7 @@ describe('Simulation', () => {
         try {
           yield* timeout(100);
           events.push('completed-after-timeout');
-        } catch (error) {
+        } catch {
           events.push('caught-error');
           // Process tries to continue after catching error
           // However, reset() clears the event queue, so any new timeouts won't execute
@@ -678,7 +677,7 @@ describe('Simulation', () => {
           yield* timeout(100);
           resource.release();
           events.push('released');
-        } catch (error) {
+        } catch {
           events.push('interrupted');
           if (resource.available < resource.capacity) {
             resource.release();

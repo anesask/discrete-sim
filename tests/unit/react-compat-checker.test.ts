@@ -398,7 +398,7 @@ describe('ReactCompatChecker', () => {
         useSimulation: () => {},
       };
       // Create circular reference
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       exports.circular = exports;
 
       // Should not throw
