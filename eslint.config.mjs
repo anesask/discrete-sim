@@ -35,6 +35,12 @@ export default tseslint.config(
     },
   },
 
+  // Plain JavaScript fixtures (loaded by worker tests): no type information.
+  {
+    files: ['tests/fixtures/**/*.mjs'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+
   // Tests: allow the looser patterns test code legitimately uses.
   {
     files: ['tests/**/*.ts'],

@@ -2,6 +2,12 @@ import { ValidationError } from '../utils/validation.js';
 import { studentTCritical } from '../statistics/distributions.js';
 import type { ConfidenceInterval } from '../statistics/Statistics.js';
 import { csvCell } from '../utils/csv.js';
+import {
+  runJobsInWorkers,
+  type ModelModule,
+  type ParallelOptions,
+  type ParallelJob,
+} from './parallel.js';
 
 /**
  * A model factory: builds a simulation for the given parameters and seed,
@@ -18,6 +24,26 @@ export type ModelFn<P, M extends Record<string, number>> = (
   seed: number,
   replication: number
 ) => M;
+
+/**
+ * Options for {@link Experiment}: where the model module lives, so that
+ * replications can run in worker threads or Web Workers.
+ */
+export interface ExperimentOptions {
+  /**
+   * Module that exports the model function, as a file: URL, absolute path or
+   * URL string workers can import. Use `import.meta.url` from the module
+   * that defines the model, or {@link Experiment.fromModule}.
+   */
+  moduleUrl?: string | URL;
+  /** Name of the exported model function (default 'model') */
+  exportName?: string;
+}
+
+/**
+ * Options for {@link Experiment.replicateParallel} and {@link Experiment.sweepParallel}.
+ */
+export type ParallelReplicationOptions = ReplicationOptions & ParallelOptions;
 
 /**
  * Options for {@link Experiment.replicate} and {@link Experiment.sweep}.
@@ -364,12 +390,153 @@ export class SweepResult<P, M extends Record<string, number>> {
  * ```
  */
 export class Experiment<P, M extends Record<string, number>> {
-  constructor(private readonly model: ModelFn<P, M>) {
+  private readonly module?: ModelModule;
+
+  constructor(
+    private readonly model: ModelFn<P, M>,
+    options: ExperimentOptions = {}
+  ) {
     if (typeof model !== 'function') {
       throw new ValidationError('model must be a function', {
         model: typeof model,
       });
     }
+    if (options.moduleUrl !== undefined) {
+      this.module = {
+        url: String(options.moduleUrl),
+        exportName: options.exportName ?? 'model',
+      };
+    }
+  }
+
+  /**
+   * Load a model from a module and build an Experiment that can run both
+   * serially and in parallel. The module must export the model function and
+   * must not run a study at top level (workers import it too).
+   *
+   * @param moduleUrl - file: URL or URL string of the module
+   * @param exportName - Exported function name (default 'model')
+   *
+   * @example
+   * ```typescript
+   * const exp = await Experiment.fromModule<Params, Metrics>(
+   *   new URL('./models/mm1.js', import.meta.url)
+   * );
+   * const rep = await exp.replicateParallel(params, { replications: 200, seed: 42 });
+   * ```
+   */
+  static async fromModule<P, M extends Record<string, number>>(
+    moduleUrl: string | URL,
+    exportName: string = 'model'
+  ): Promise<Experiment<P, M>> {
+    const url = String(moduleUrl);
+    const mod = (await import(url)) as Record<string, unknown>;
+    const fn = mod[exportName];
+    if (typeof fn !== 'function') {
+      throw new ValidationError(
+        `Export "${exportName}" of ${url} is not a function`,
+        { moduleUrl: url, exportName }
+      );
+    }
+    return new Experiment<P, M>(fn as ModelFn<P, M>, {
+      moduleUrl: url,
+      exportName,
+    });
+  }
+
+  /**
+   * True when this experiment knows its model module and can run in workers.
+   */
+  get canRunParallel(): boolean {
+    return this.module !== undefined;
+  }
+
+  /**
+   * Like {@link Experiment.replicate}, but replications run on a pool of
+   * workers (worker_threads in Node, Web Workers in browsers). Seeds are the
+   * same as in the serial run, so results are identical. Requires the
+   * experiment to have been created with a module (see {@link ExperimentOptions}
+   * or {@link Experiment.fromModule}).
+   */
+  async replicateParallel(
+    params: P,
+    options: ParallelReplicationOptions
+  ): Promise<ReplicationResult<P, M>> {
+    const module = this.requireModule();
+    const { replications, seed, onProgress } = this.validateOptions(options);
+    const jobs: ParallelJob<P>[] = [];
+    const seeds: number[] = [];
+    for (let i = 0; i < replications; i++) {
+      const s = deriveSeed(seed, i);
+      seeds.push(s);
+      jobs.push({ id: i, params, seed: s, replication: i });
+    }
+    const runs = await runJobsInWorkers<P, M>(
+      module,
+      jobs,
+      options,
+      onProgress
+    );
+    return new ReplicationResult(params, runs, seeds);
+  }
+
+  /**
+   * Like {@link Experiment.sweep}, but every replication of every scenario is
+   * distributed over the worker pool at once. Common random numbers are kept:
+   * replication i uses the same seed in every scenario.
+   */
+  async sweepParallel(
+    space: ParameterSpace<P>,
+    options: ParallelReplicationOptions
+  ): Promise<SweepResult<P, M>> {
+    const module = this.requireModule();
+    const { replications, seed, onProgress } = this.validateOptions(options);
+    const combinations = Experiment.combinations(space);
+    if (combinations.length === 0) {
+      throw new ValidationError(
+        'Parameter space must have at least one value for every parameter',
+        { space }
+      );
+    }
+    const seeds: number[] = [];
+    for (let i = 0; i < replications; i++) seeds.push(deriveSeed(seed, i));
+    const jobs: ParallelJob<P>[] = [];
+    combinations.forEach((params, c) => {
+      for (let i = 0; i < replications; i++) {
+        jobs.push({
+          id: c * replications + i,
+          params,
+          seed: seeds[i]!,
+          replication: i,
+        });
+      }
+    });
+    const runs = await runJobsInWorkers<P, M>(
+      module,
+      jobs,
+      options,
+      onProgress
+    );
+    const scenarios = combinations.map(
+      (params, c) =>
+        new ReplicationResult(
+          params,
+          runs.slice(c * replications, (c + 1) * replications),
+          seeds
+        )
+    );
+    return new SweepResult(scenarios);
+  }
+
+  private requireModule(): ModelModule {
+    if (!this.module) {
+      throw new ValidationError(
+        'Parallel replications need the model as a module: create the experiment with ' +
+          'Experiment.fromModule(url) or new Experiment(model, { moduleUrl: import.meta.url, exportName })',
+        {}
+      );
+    }
+    return this.module;
   }
 
   /**
