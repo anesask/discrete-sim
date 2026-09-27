@@ -117,10 +117,13 @@ export {
 export type {
   ModelFn,
   ReplicationOptions,
+  ExperimentOptions,
+  ParallelReplicationOptions,
   MetricSummary,
   ComparisonRow,
   ParameterSpace,
 } from './experiment/Experiment.js';
+export type { ParallelOptions, ModelModule } from './experiment/parallel.js';
 
 // Random number generation
 export { Random, WeightedValue, EmpiricalOptions } from './random/Random.js';

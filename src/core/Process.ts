@@ -889,7 +889,6 @@ export class Process {
       }
       case WaitKind.StoreGet: {
         const onItem = (item: unknown) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           waitable.retrievedItem = item;
           onComplete();
         };
@@ -917,7 +916,6 @@ export class Process {
       }
       case WaitKind.State: {
         const onSatisfied = (value: unknown) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           waitable.value = value;
           onComplete();
         };
