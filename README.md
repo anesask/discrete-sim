@@ -6,12 +6,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 
-Discrete-event simulation for TypeScript and JavaScript, in the spirit of Python's SimPy. Describe processes as generator functions, share limited resources, collect statistics, and run experiments with reproducible seeds.
+Discrete-event simulation for TypeScript and JavaScript. Describe processes as generator functions, share limited resources, react to state changes, batch work, follow shift schedules, collect statistics with confidence intervals, and run replicated experiments with reproducible seeds. Built for Node and the browser, with non-blocking and real-time execution for interactive use.
 
 - **Zero dependencies**, ships CommonJS and ESM with types
 - **Runs in Node and the browser**, with non-blocking and real-time drivers for UIs
 - **Reproducible**: seeded random numbers, deterministic event order
 - **Honest statistics**: confidence intervals, batch means, replications and parameter sweeps built in
+- **Beyond the classic toolkit**: observable `State` instead of polling, `Batch` collection, time-varying `Schedule`s, an `Experiment` runner, monitors with history, typed `yield*` helpers
 
 New to discrete-event simulation? Start with the [Beginner's Guide](docs/guide/beginners-guide.md).
 
@@ -78,27 +79,7 @@ console.log(
 
 Full signatures: [API reference](docs/api/index.md). How it works and what it does not do: [Architecture and performance](docs/guide/architecture.md).
 
-## Coming from SimPy
-
-| SimPy                             | discrete-sim                                            | Notes                                            |
-| --------------------------------- | ------------------------------------------------------- | ------------------------------------------------ |
-| `Environment()`                   | `new Simulation()`                                      | `sim.now`, `sim.run(until)`                      |
-| `env.process(gen())`              | `sim.process(gen)`                                      | Pass the generator function; returns a `Process` |
-| `yield env.timeout(5)`            | `yield* timeout(5)`                                     | Note the `yield*`                                |
-| `Resource(env, capacity)`         | `new Resource(sim, capacity)`                           | `yield res.request()` then `res.release()`       |
-| `PriorityResource`                | `new Resource(sim, n, { queueDiscipline: 'priority' })` | `request(priority)`, lower = first               |
-| `PreemptiveResource`              | `new Resource(sim, n, { preemptive: true })`            | Preempted process receives `PreemptionError`     |
-| `Container`                       | `Buffer`                                                | `put(amount)` / `get(amount)`                    |
-| `Store`, `FilterStore`            | `Store`                                                 | `get(filterFn)` for filtering                    |
-| `Event`, `succeed()`              | `SimEvent`, `trigger(value)`                            | `wait()`, `reset()` for reuse                    |
-| `yield proc`                      | `yield proc.done()`                                     | Result tells how the child ended                 |
-| `yield req \| env.timeout(5)`     | `yield* anyOf([req, timeout(5)])`                       | Losing branches are cancelled                    |
-| `yield a & b`                     | `yield* allOf([a, b])`                                  |                                                  |
-| `RealtimeEnvironment`             | `sim.runRealtime({ factor })`                           | Pause, resume, change speed                      |
-| `random` module                   | `Random`                                                | Seeded, more distributions                       |
-| batching, schedules, replications | `Batch`, `Schedule`, `Experiment`                       | No SimPy equivalent                              |
-
-Not available: `Interrupt` as a distinct event class (use `process.interrupt(error)`), `Condition` events with custom evaluators, `Process.target`.
+Know SimPy? The [migration page](docs/guide/from-simpy.md) maps its concepts to this library and lists what is different.
 
 ## Examples
 

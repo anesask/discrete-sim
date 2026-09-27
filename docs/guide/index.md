@@ -22,6 +22,8 @@ Long-form documentation for the library. The [README](../../README.md) has the i
 
 ## Reference
 
+- [Migrating from SimPy](from-simpy.md): concept map and what has no counterpart
+
 - [API Reference](../api/index.md)
 - [Examples](../examples.md)
 - [Errors and Validation](errors.md)
