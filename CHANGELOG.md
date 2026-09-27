@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- README positions the library on its own terms; the SimPy concept table moved to `docs/guide/from-simpy.md` ("Migrating from SimPy") together with a list of what has no SimPy counterpart.
 - **Measured performance numbers** replace the estimates in the architecture page: about 500k events per second on a laptop, so a million-event run takes seconds, not minutes.
 - **Agent instructions** ([#39](https://github.com/anesask/discrete-sim/issues/39)): `AGENTS.md` at the root documents commands, layout, rules and the release process for coding agents and contributors alike (`CLAUDE.md` points to it). `.claude/agents/` holds five reusable agent definitions (test-writer, example-author, docs-sync, release-checker, sim-reviewer) with a README; `.claude/settings.json` shares safe permissions. `.claude/` is now versioned except `settings.local.json`.
 - **Every example has a README** and the examples catalogue in `docs/examples.md` lists all thirteen: added READMEs for bank-express-lane, hospital-emergency and traffic-light.
